@@ -61,6 +61,20 @@
       </div>
     </div>
 
+    <p class="form-section">Working days</p>
+    <div class="field">
+      <div class="weekday-picker">
+        {% for choice in form.working_days %}
+        <label class="weekday">
+          {{ choice.tag }}
+          <span>{{ choice.choice_label|slice:":3" }}</span>
+        </label>
+        {% endfor %}
+      </div>
+      <p class="hint">{{ form.working_days.help_text }}</p>
+      {% if form.working_days.errors %}<p class="error">{{ form.working_days.errors.0 }}</p>{% endif %}
+    </div>
+
     <div class="form-actions">
       <button type="submit" class="btn btn-primary">{% if is_edit %}Save changes{% else %}Add employee{% endif %}</button>
       {% if not is_edit %}

@@ -16,9 +16,9 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.views.decorators.http import require_POST
 
-from .emails import send_attendance_emails
-from .forms import EmployeeForm, OrganizationForm, OrganizationSignupForm
-from .models import Attendance, Collection, EmailLog, Employee
+from .emails import send_attendance_emails, send_monthly_reports
+from .forms import EmployeeForm, HolidayForm, OrganizationForm, OrganizationSignupForm
+from .models import Attendance, Collection, EmailLog, Employee, Holiday
 
 VALID_STATUSES = {choice for choice, _ in Attendance.STATUS_CHOICES}
 
@@ -366,13 +366,28 @@ def attendance_sheet(request):
         record.organization = org
         existing[record.employee_id] = record
 
+    holiday = Holiday.objects.filter(organization=org, date=selected_date).first()
+
     rows = []
     for employee in employees:
         record = existing.get(employee.id)
+        # What this day is for this employee when nobody touches the row.
+        if holiday:
+            default_status = Attendance.HOLIDAY
+        elif not employee.works_on(selected_date):
+            default_status = Attendance.WEEK_OFF
+        else:
+            default_status = ""
         rows.append(
             {
                 "employee": employee,
                 "status": record.status if record else "",
+                "default_status": default_status,
+                "off_label": (
+                    f"Holiday · {holiday.name}"
+                    if holiday
+                    else ("Week Off" if default_status == Attendance.WEEK_OFF else "")
+                ),
                 "note": record.note if record else "",
                 "check_in_time": record.check_in_time if record else None,
                 "check_out_time": record.check_out_time if record else None,
@@ -400,7 +415,13 @@ def attendance_sheet(request):
             "selected_date": selected_date,
             "is_future": selected_date > today,
             "already_marked": len(existing),
-            "status_choices": Attendance.STATUS_CHOICES,
+            "holiday": holiday,
+            "off_count": sum(1 for row in rows if row["default_status"]),
+            "status_choices": [
+                (value, label)
+                for value, label in Attendance.STATUS_CHOICES
+                if value in Attendance.MARKABLE_STATUSES
+            ],
             "max_date": today,
             "prev_date": selected_date - timedelta(days=1),
             "next_date": selected_date + timedelta(days=1),
@@ -442,7 +463,7 @@ def attendance_save(request):
             employee_id = int(entry.get("employee_id"))
         except (TypeError, ValueError):
             continue
-        # Times only make sense for a day the employee actually turned up.
+        # Times and business only make sense for a day they actually turned up.
         attended = status in (Attendance.PRESENT, Attendance.HALF_DAY)
         cleaned.append(
             {
@@ -551,13 +572,16 @@ def attendance_save(request):
             )
             notify_ids.extend(pk for pk in unchanged_ids if pk not in delivered)
 
-        result["skipped"] = len(saved_ids) - len(notify_ids)
-
-        records = (
-            Attendance.objects.filter(id__in=notify_ids)
+        # Nobody needs a mail telling them Sunday was Sunday.
+        records = [
+            record
+            for record in Attendance.objects.filter(id__in=notify_ids)
             .select_related("employee", "organization")
             .prefetch_related("collections")
-        )
+            if record.status not in Attendance.NON_WORKING_STATUSES
+        ]
+        result["skipped"] = len(saved_ids) - len(records)
+
         sent, failed, failures = send_attendance_emails(records, previous_statuses)
         result.update(
             {
@@ -572,7 +596,7 @@ def attendance_save(request):
     else:
         message = f"Saved {result['saved']} record(s), emailed {result['emailed']}."
         if result["skipped"]:
-            message += f" {result['skipped']} unchanged — no mail re-sent."
+            message += f" {result['skipped']} not mailed (unchanged, week off or holiday)."
         result["message"] = message
 
     return JsonResponse(result)
@@ -584,14 +608,18 @@ def attendance_resend(request):
     """Retry notification mails for a given date."""
     org = request.user.organization
     selected_date = parse_date(request.POST.get("date"))
-    records = (
-        Attendance.objects.filter(organization=org, date=selected_date)
+    records = [
+        record
+        for record in Attendance.objects.filter(organization=org, date=selected_date)
         .select_related("employee", "organization")
         .prefetch_related("collections")
-    )
+        if record.status not in Attendance.NON_WORKING_STATUSES
+    ]
 
-    if not records.exists():
-        messages.warning(request, f"No attendance saved for {selected_date:%d %b %Y}.")
+    if not records:
+        messages.warning(
+            request, f"Nothing to mail for {selected_date:%d %b %Y}."
+        )
         return redirect(f"/attendance/?date={selected_date:%Y-%m-%d}")
 
     sent, failed, _ = send_attendance_emails(records)
@@ -645,18 +673,28 @@ def report_monthly(request):
         if record.is_late:
             row["late"] += 1
 
+    holiday_dates = list(
+        Holiday.objects.filter(organization=org, date__range=(start, end)).values_list(
+            "date", flat=True
+        )
+    )
+
     rows = []
     for row in by_employee.values():
         sales = business.get(row["employee"].id, {})
+        scheduled = row["employee"].working_days_between(start, end, holiday_dates)
+        payable = round(row["payable"], 1)
         rows.append(
             {
                 "employee": row["employee"],
+                "working_days": scheduled,
+                "attendance_pct": round(min(payable / scheduled, 1) * 100) if scheduled else 0,
                 "present": row["counts"].get(Attendance.PRESENT, 0),
                 "absent": row["counts"].get(Attendance.ABSENT, 0),
                 "half_day": row["counts"].get(Attendance.HALF_DAY, 0),
                 "leave": row["counts"].get(Attendance.LEAVE, 0),
                 "late": row["late"],
-                "payable": round(row["payable"], 1),
+                "payable": payable,
                 "orders": sales.get("orders") or 0,
                 "order_total": sales.get("order_total") or Decimal("0"),
                 "collected": sales.get("collected_total") or Decimal("0"),
@@ -678,8 +716,8 @@ def report_monthly(request):
         writer = csv.writer(response)
         writer.writerow(
             [
-                "Employee Code", "Name", "Email", "Present", "Absent",
-                "Half Day", "Leave", "Late Arrivals", "Payable Days",
+                "Employee Code", "Name", "Email", "Working Days", "Present", "Absent",
+                "Half Day", "Leave", "Late Arrivals", "Payable Days", "Attendance %",
                 "Orders", "Order Value", "Collected",
             ]
         )
@@ -689,12 +727,14 @@ def report_monthly(request):
                     row["employee"].employee_code,
                     row["employee"].name,
                     row["employee"].email,
+                    row["working_days"],
                     row["present"],
                     row["absent"],
                     row["half_day"],
                     row["leave"],
                     row["late"],
                     row["payable"],
+                    row["attendance_pct"],
                     row["orders"],
                     # Formatted so the column stays 2-decimal money regardless
                     # of what the database backend hands back for SUM().
@@ -703,7 +743,7 @@ def report_monthly(request):
                 ]
             )
         writer.writerow(
-            ["", "TOTAL", "", "", "", "", "", "", "",
+            ["", "TOTAL", "", "", "", "", "", "", "", "", "",
              totals["orders"], f"{totals['order_total']:.2f}", f"{totals['collected']:.2f}"]
         )
         return response
@@ -718,21 +758,125 @@ def report_monthly(request):
             "month_label": f"{calendar.month_name[month]} {year}",
             "months": list(enumerate(calendar.month_name))[1:],
             "years": range(today.year - 3, today.year + 1),
-            "working_days": (end - start).days + 1,
+            "calendar_days": (end - start).days + 1,
+            "holiday_count": len(holiday_dates),
             "totals": totals,
         },
     )
 
 
 @org_required
+@require_POST
+def report_send(request):
+    """Mail every employee their own summary for the selected month."""
+    org = request.user.organization
+    today = timezone.localdate()
+    try:
+        year = int(request.POST.get("year", today.year))
+        month = int(request.POST.get("month", today.month))
+    except ValueError:
+        year, month = today.year, today.month
+
+    if not 1 <= month <= 12:
+        messages.error(request, "Pick a valid month.")
+        return redirect("report_monthly")
+
+    start, end = month_bounds(year, month)
+    if start > today:
+        messages.warning(request, "That month has not started yet.")
+        return redirect(f"/reports/monthly/?year={year}&month={month}")
+
+    employees = list(Employee.objects.filter(organization=org, is_active=True))
+    sent, failed, skipped, failures = send_monthly_reports(org, start, end, employees)
+
+    label = f"{calendar.month_name[month]} {year}"
+    if failed:
+        names = ", ".join(name for name, _ in failures[:3])
+        messages.warning(
+            request,
+            f"{label}: emailed {sent}, {failed} failed ({names}…). See the email log.",
+        )
+    elif sent:
+        note = f" {skipped} skipped (no attendance recorded)." if skipped else ""
+        messages.success(request, f"{label} report emailed to {sent} employee(s).{note}")
+    else:
+        messages.warning(request, f"No attendance recorded in {label} — nothing to send.")
+
+    return redirect(f"/reports/monthly/?year={year}&month={month}")
+
+
+@org_required
+@require_POST
+def employee_send_month(request, pk):
+    """Mail one employee their own summary for the selected month."""
+    org = request.user.organization
+    employee = get_object_or_404(Employee, pk=pk, organization=org)
+    today = timezone.localdate()
+    try:
+        year = int(request.POST.get("year", today.year))
+        month = int(request.POST.get("month", today.month))
+    except ValueError:
+        year, month = today.year, today.month
+
+    start, end = month_bounds(year, month)
+    sent, failed, skipped, failures = send_monthly_reports(org, start, end, [employee])
+
+    label = f"{calendar.month_name[month]} {year}"
+    if failed:
+        messages.warning(request, f"Could not email {employee.name}: {failures[0][1]}")
+    elif skipped:
+        messages.warning(request, f"{employee.name} has no attendance recorded in {label}.")
+    else:
+        messages.success(request, f"{label} report emailed to {employee.name}.")
+
+    return redirect(f"/employees/{employee.pk}/?year={year}&month={month}")
+
+
+@org_required
 def org_settings(request):
     org = request.user.organization
-    form = OrganizationForm(request.POST or None, instance=org)
-    if request.method == "POST" and form.is_valid():
+    today = timezone.localdate()
+
+    # Two independent forms on one page; only the submitted one is bound.
+    submitted = request.POST.get("form") if request.method == "POST" else None
+    form = OrganizationForm(
+        request.POST if submitted == "org" else None, instance=org
+    )
+    holiday_form = HolidayForm(
+        request.POST if submitted == "holiday" else None, organization=org
+    )
+
+    if submitted == "org" and form.is_valid():
         form.save()
         messages.success(request, "Organization settings updated.")
         return redirect("org_settings")
-    return render(request, "settings.html", {"form": form})
+
+    if submitted == "holiday" and holiday_form.is_valid():
+        holiday = holiday_form.save()
+        messages.success(request, f"{holiday.name} declared a holiday on {holiday.date:%d %b %Y}.")
+        return redirect("org_settings")
+
+    return render(
+        request,
+        "settings.html",
+        {
+            "form": form,
+            "holiday_form": holiday_form,
+            "holidays": Holiday.objects.filter(organization=org, date__year=today.year),
+            "year": today.year,
+        },
+    )
+
+
+@org_required
+@require_POST
+def holiday_delete(request, pk):
+    org = request.user.organization
+    holiday = get_object_or_404(Holiday, pk=pk, organization=org)
+    name = holiday.name
+    holiday.delete()
+    messages.success(request, f"Removed the {name} holiday.")
+    return redirect("org_settings")
 
 
 @org_required

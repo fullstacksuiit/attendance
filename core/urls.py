@@ -25,12 +25,15 @@ urlpatterns = [
     path("employees/<int:pk>/edit/", views.employee_edit, name="employee_edit"),
     path("employees/<int:pk>/delete/", views.employee_delete, name="employee_delete"),
     path("employees/<int:pk>/toggle/", views.employee_toggle_active, name="employee_toggle"),
+    path("employees/<int:pk>/send-month/", views.employee_send_month, name="employee_send_month"),
     # attendance
     path("attendance/", views.attendance_sheet, name="attendance_sheet"),
     path("attendance/save/", views.attendance_save, name="attendance_save"),
     path("attendance/resend/", views.attendance_resend, name="attendance_resend"),
     # reports
     path("reports/monthly/", views.report_monthly, name="report_monthly"),
+    path("reports/monthly/send/", views.report_send, name="report_send"),
     path("emails/logs/", views.email_log_list, name="email_logs"),
     path("settings/", views.org_settings, name="org_settings"),
+    path("settings/holidays/<int:pk>/delete/", views.holiday_delete, name="holiday_delete"),
 ]

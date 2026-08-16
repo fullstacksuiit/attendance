@@ -191,6 +191,13 @@
                     <div style="font-size:11px;color:#6b7280;text-transform:uppercase;letter-spacing:.4px;">Payable</div>
                   </td>
                 </tr>
+                <tr>
+                  <td colspan="4" style="padding:12px 16px;border-top:1px solid #f1f2f4;font-size:13px;color:#374151;">
+                    <strong>{{ summary.payable_days }}</strong> of
+                    <strong>{{ summary.working_days }}</strong> working days
+                    ({{ summary.attendance_pct }}% attendance) — you work {{ employee.working_days_display }}.
+                  </td>
+                </tr>
                 {% if summary.punctuality_pct is not None %}
                 <tr>
                   <td colspan="4" style="padding:12px 16px;border-top:1px solid #f1f2f4;font-size:13px;color:#374151;">

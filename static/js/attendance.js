@@ -25,8 +25,8 @@
   function refreshLateFlag(row) {
     var flag = row.querySelector(".late-flag");
     if (!flag) return;
-    var checked = row.querySelector("input[type=radio]:checked");
-    var attended = checked && (checked.value === "PRESENT" || checked.value === "HALF_DAY");
+    var status = statusOf(row);
+    var attended = status === "PRESENT" || status === "HALF_DAY";
     var minutes = toMinutes(row.querySelector(".check-in").value);
     flag.hidden = !(attended && minutes !== null && minutes > lateAfter);
   }
@@ -103,7 +103,7 @@
     var orderValue = 0;
     var collected = 0;
     rows.forEach(function (row) {
-      if (!row.querySelector("input[type=radio]:checked")) return;
+      if (!statusOf(row)) return;
       linesOf(row).forEach(function (line) {
         if (line.order_amount > 0) orders += 1;
         orderValue += line.order_amount;
@@ -162,9 +162,15 @@
     refreshDayTotals();
   });
 
+  /** The status this row will save with — an explicit pick beats the schedule default. */
+  function statusOf(row) {
+    var checked = row.querySelector("input[type=radio]:checked");
+    return checked ? checked.value : row.dataset.defaultStatus || "";
+  }
+
   function updateCount() {
     var marked = rows.filter(function (row) {
-      return row.querySelector("input[type=radio]:checked");
+      return statusOf(row) !== "";
     }).length;
     counter.textContent = marked;
     saveBtn.disabled = marked === 0;
@@ -197,6 +203,8 @@
     button.addEventListener("click", function () {
       var status = button.dataset.status;
       rows.forEach(function (row) {
+        // Leave week-off and holiday rows alone — overriding those is deliberate.
+        if (row.dataset.defaultStatus) return;
         var radio = row.querySelector('input[type=radio][value="' + status + '"]');
         if (radio) radio.checked = true;
       });
@@ -221,12 +229,12 @@
 
   function collectRecords() {
     return rows.reduce(function (acc, row) {
-      var checked = row.querySelector("input[type=radio]:checked");
-      if (!checked) return acc;
+      var status = statusOf(row);
+      if (!status) return acc;
       var note = row.querySelector(".note-input");
       acc.push({
         employee_id: parseInt(row.dataset.employee, 10),
-        status: checked.value,
+        status: status,
         note: note ? note.value : "",
         check_in_time: row.querySelector(".check-in").value,
         check_out_time: row.querySelector(".check-out").value,
@@ -268,8 +276,13 @@
     var records = collectRecords();
     if (!records.length) return;
 
+    // Week offs and holidays are saved but never mailed, so keep them out of the count.
+    var mailable = records.filter(function (record) {
+      return record.status !== "WEEK_OFF" && record.status !== "HOLIDAY";
+    }).length;
+
     var notify = notifyToggle ? notifyToggle.checked : true;
-    if (notify && !window.confirm("Save attendance and email " + records.length + " employee(s)?")) {
+    if (notify && !window.confirm("Save attendance and email " + mailable + " employee(s)?")) {
       return;
     }
 

@@ -11,8 +11,18 @@
       {% if employee.designation %} · {{ employee.designation }}{% endif %}
       {% if employee.department %} · {{ employee.department }}{% endif %}
     </p>
+    <p class="muted small">
+      Works {{ employee.working_days_display }} · weekly off {{ employee.weekly_off_display }}
+    </p>
   </div>
   <div class="head-actions">
+    <form method="post" action="{% url 'employee_send_month' employee.pk %}" class="inline-form"
+          onsubmit="return confirm('Email {{ employee.name|escapejs }} their {{ month_label }} report?');">
+      {% csrf_token %}
+      <input type="hidden" name="year" value="{{ year }}">
+      <input type="hidden" name="month" value="{{ month }}">
+      <button type="submit" class="btn btn-primary">Email {{ month_label }} report</button>
+    </form>
     <a href="{% url 'employee_edit' employee.pk %}" class="btn btn-ghost">Edit</a>
     <a href="{% url 'employee_list' %}" class="btn btn-ghost">Back</a>
   </div>
@@ -33,12 +43,16 @@
 </form>
 
 <section class="stat-grid">
+  <div class="stat"><span class="stat-label">Working days</span><span class="stat-value">{{ business.working_days }}</span><span class="stat-sub">{{ month_label }}</span></div>
   <div class="stat ok"><span class="stat-label">Present</span><span class="stat-value">{{ summary.PRESENT }}</span></div>
   <div class="stat warn"><span class="stat-label">Half day</span><span class="stat-value">{{ summary.HALF_DAY }}</span></div>
   <div class="stat bad"><span class="stat-label">Absent</span><span class="stat-value">{{ summary.ABSENT }}</span></div>
-  <div class="stat info"><span class="stat-label">Leave</span><span class="stat-value">{{ summary.LEAVE }}</span></div>
   <div class="stat late"><span class="stat-label">Late arrivals</span><span class="stat-value">{{ late_days }}</span></div>
-  <div class="stat"><span class="stat-label">Payable days</span><span class="stat-value">{{ payable_days }}</span></div>
+  <div class="stat info">
+    <span class="stat-label">Payable days</span>
+    <span class="stat-value">{{ payable_days }}</span>
+    <span class="stat-sub">{{ business.attendance_pct }}% attendance</span>
+  </div>
 </section>
 
 <section class="stat-grid three">

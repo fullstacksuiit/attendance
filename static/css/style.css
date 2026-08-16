@@ -257,6 +257,7 @@ h2 { font-size: 16px; margin: 0; }
 .pill.half_day { background: #fef3c7; color: #b45309; }
 .pill.leave { background: #dbeafe; color: #1d4ed8; }
 .pill.late { background: #ffedd5; color: #c2410c; margin-left: 4px; }
+.pill.week_off, .pill.holiday { background: #ede9fe; color: #6d28d9; }
 .late-text { color: #c2410c; font-weight: 600; }
 
 /* ---------- toolbar ---------- */
@@ -287,6 +288,35 @@ h2 { font-size: 16px; margin: 0; }
 .radio-dot.leave input:checked + span { border-color: var(--leave); background: var(--leave); box-shadow: inset 0 0 0 3px #fff; }
 
 .note-input { font-size: 13px; padding: 7px 10px; min-width: 200px; }
+
+/* rows the schedule already answered for */
+.table.sheet tbody tr.off-row > td { background: #fafafa; }
+.table.sheet tbody tr.off-row .radio-dot span { border-color: #e5e7eb; }
+.off-badge {
+  display: inline-block; margin-top: 3px; padding: 2px 8px; border-radius: 999px;
+  background: #ede9fe; color: #6d28d9; font-size: 11px; font-weight: 800;
+  letter-spacing: .3px; width: fit-content;
+}
+
+/* weekday picker on the employee form */
+.weekday-picker { display: flex; gap: 8px; flex-wrap: wrap; }
+.weekday { position: relative; }
+.weekday input { position: absolute; opacity: 0; width: 0; height: 0; }
+.weekday span {
+  display: block; padding: 8px 14px; border: 1px solid var(--border); border-radius: 9px;
+  font-size: 13px; font-weight: 600; color: var(--muted); cursor: pointer; user-select: none;
+  transition: background .12s, border-color .12s, color .12s;
+}
+.weekday:hover span { border-color: #9ca3af; }
+.weekday input:checked + span {
+  background: var(--primary); border-color: var(--primary); color: #fff;
+}
+.weekday input:focus-visible + span { box-shadow: 0 0 0 3px rgba(79, 70, 229, .2); }
+
+/* inline holiday form */
+.holiday-form { display: flex; gap: 12px; align-items: flex-end; flex-wrap: wrap; }
+.holiday-form .field { margin-bottom: 0; }
+.holiday-form .field.grow { flex: 1; min-width: 220px; }
 
 .time-input {
   font-size: 13px; padding: 6px 8px; border: 1px solid var(--border);

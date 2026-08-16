@@ -2,7 +2,7 @@ from django import forms
 from django.contrib.auth.forms import AuthenticationForm
 from django.db import transaction
 
-from .models import Employee, Organization, User
+from .models import DEFAULT_WORKING_DAYS, WEEKDAYS, Employee, Holiday, Organization, User
 
 
 class OrganizationSignupForm(forms.Form):
@@ -69,7 +69,41 @@ class OrganizationForm(forms.ModelForm):
         }
 
 
+class HolidayForm(forms.ModelForm):
+    """A day the owner declares off for everyone."""
+
+    class Meta:
+        model = Holiday
+        fields = ["date", "name"]
+        widgets = {"date": forms.DateInput(attrs={"type": "date"})}
+
+    def __init__(self, *args, organization=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.organization = organization
+
+    def clean_date(self):
+        day = self.cleaned_data["date"]
+        if Holiday.objects.filter(organization=self.organization, date=day).exists():
+            raise forms.ValidationError("A holiday is already declared for this date.")
+        return day
+
+    def save(self, commit=True):
+        holiday = super().save(commit=False)
+        holiday.organization = self.organization
+        if commit:
+            holiday.save()
+        return holiday
+
+
 class EmployeeForm(forms.ModelForm):
+    working_days = forms.MultipleChoiceField(
+        choices=WEEKDAYS,
+        widget=forms.CheckboxSelectMultiple,
+        required=False,
+        label="Working days",
+        help_text="Unticked days are weekly offs — no attendance mail goes out on them.",
+    )
+
     class Meta:
         model = Employee
         fields = [
@@ -80,6 +114,7 @@ class EmployeeForm(forms.ModelForm):
             "designation",
             "department",
             "date_of_joining",
+            "working_days",
             "is_active",
         ]
         widgets = {"date_of_joining": forms.DateInput(attrs={"type": "date"})}
@@ -87,6 +122,17 @@ class EmployeeForm(forms.ModelForm):
     def __init__(self, *args, organization=None, **kwargs):
         super().__init__(*args, **kwargs)
         self.organization = organization
+        # The model stores "012345"; the form works in a list of weekday numbers.
+        initial = self.instance.working_days if self.instance.pk else DEFAULT_WORKING_DAYS
+        # ModelForm already seeded self.initial with the raw "012345" string, and that
+        # wins over the field's own initial — so overwrite it with the list of days.
+        self.initial["working_days"] = list(initial)
+
+    def clean_working_days(self):
+        days = self.cleaned_data.get("working_days") or []
+        if not days:
+            raise forms.ValidationError("Pick at least one working day.")
+        return "".join(sorted(days))
 
     def _duplicate_exists(self, **lookup):
         qs = Employee.objects.filter(organization=self.organization, **lookup)

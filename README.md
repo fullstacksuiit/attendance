@@ -77,8 +77,35 @@ running — a stale process serves stale code and the symptom looks like a bug.
 | Admin picks a date and marks everyone on one sheet | `/attendance/` |
 | **Save & Notify** writes the records and emails each employee | `POST /attendance/save/` |
 | Monthly summary with payable days + CSV export | `/reports/monthly/` |
+| Email each employee their own month-end statement | `POST /reports/monthly/send/` |
 | Delivery status of every mail sent | `/emails/logs/` |
-| Office start time and grace period | `/settings/` |
+| Office timings, grace period, declared holidays | `/settings/` |
+
+### Working days, weekly offs and holidays
+
+Each employee has their own weekly schedule — ticked weekdays on the employee
+form, defaulting to **Mon–Sat** with Sunday off. The owner declares one-off
+holidays (Diwali, Independence Day…) at `/settings/`, and those apply to
+everyone.
+
+A month's working days are derived, never typed:
+
+```
+working days = scheduled weekdays in the month − declared holidays on those weekdays
+```
+
+August 2026 for a Mon–Sat employee: 31 days − 5 Sundays = 26, minus one declared
+holiday = **25**. A Mon–Fri colleague gets 20 for the same month. A holiday that
+lands on someone's weekly off is not double-counted.
+
+On the attendance sheet, a weekly-off or holiday row is badged and marked
+`Week Off` / `Holiday` automatically — **no mail goes out for those days**.
+Picking a status overrides it, so Sunday duty is one click. The "Mark all"
+buttons deliberately skip those rows so a bulk Present never sweeps up a Sunday.
+
+`Week Off` and `Holiday` never count as absence, never break a present streak,
+and carry no payable weight. Attendance % is measured as
+`payable days ÷ working days`, so a lightly-marked month cannot inflate it.
 
 ### Check-in time and late arrivals
 
@@ -125,6 +152,24 @@ Totals roll up to the dashboard (today + this month), the monthly report (per
 employee plus a TOTAL row), the CSV export, and each employee's own page.
 Amounts render with Indian grouping (`1,25,000.00`) via the `rupees` filter in
 [core/templatetags/money.py](core/templatetags/money.py).
+
+### Monthly statement by email
+
+**Email report to staff** on the monthly report page mails every active employee
+their *own* month-end statement — never the whole team's table to everyone.
+The same button per person sits on their detail page.
+
+Each statement carries working days, payable days, attendance %, the status
+counts, punctuality, the month's orders and collection, and a day-by-day table
+with check-in times, late minutes, notes and daily collection.
+
+- Employees with **no attendance recorded** that month are skipped, not sent an
+  empty statement; the count is reported back.
+- Inactive employees are excluded.
+- A month that has not started yet is refused.
+- Sending mid-month is fine — the mail says "August 2026 so far, as on 17 Aug".
+- Every send is written to the email log like any other mail, with no attendance
+  row attached since a statement belongs to no single day.
 
 ### One mail per change, never a duplicate
 
@@ -202,13 +247,15 @@ another org's employee returns 404. This is covered by tests.
 ```
 Organization ─┬─ User (admin, logs in with email)
               ├─ Employee ──┬─ Attendance (employee + date unique)
-              │             │      └─ Collection (party_name, order, collected)
-              │             └─ EmailLog (SENT / FAILED + error)
-              └─ ...
+              │  (working_  │      └─ Collection (party_name, order, collected)
+              │   days)     └─ EmailLog (SENT / FAILED + error)
+              └─ Holiday (org + date unique)
 ```
 
 `Attendance.STATUS_WEIGHTS` drives the payable-days column in reports:
-Present = 1.0, Half Day = 0.5, Absent and Leave = 0.
+Present = 1.0, Half Day = 0.5, everything else = 0.
+`Employee.working_days` stores the schedule as weekday digits — `"012345"` is
+Mon–Sat, where 0 = Monday, matching `date.weekday()`.
 
 ## Tests
 
@@ -216,7 +263,13 @@ Present = 1.0, Half Day = 0.5, Absent and Leave = 0.
 python manage.py test core
 ```
 
-56 tests covering signup, tenant isolation, saving the sheet, the email subject
+88 tests covering signup, tenant isolation, monthly statements by email
+(per-employee content, skipping employees with no attendance, inactive and
+foreign-org exclusion, failure logging, future months, login guard),
+per-employee working days (Mon–Sat
+and Mon–Fri schedules, declared holidays, holidays landing on a weekly off,
+week-off rows saved but never mailed, overrides, streaks), holiday admin and its
+tenant guard, saving the sheet, the email subject
 and body per status, the no-duplicate-mail rule (identical resave stays silent,
 status/lateness/collection changes re-notify, note-only edits do not, failed
 sends are retried, force re-send overrides), late-arrival maths (grace period,

@@ -43,6 +43,18 @@
 </div>
 {% endif %}
 
+{% if holiday %}
+<div class="callout">
+  <strong>{{ holiday.name }}</strong> — {{ selected_date|date:"d M Y" }} is a declared holiday.
+  Everyone is marked Holiday automatically and no mail goes out. Pick a status to override anyone who worked.
+</div>
+{% elif off_count %}
+<div class="callout">
+  {{ off_count }} employee(s) have a weekly off on {{ selected_date|date:"l" }}.
+  They are marked Week Off automatically and get no mail — pick a status to override.
+</div>
+{% endif %}
+
 {% if already_marked %}
 <div class="callout">
   Attendance for <strong>{{ selected_date|date:"d M Y" }}</strong> is already saved for {{ already_marked }} employee(s).
@@ -78,13 +90,18 @@
       </thead>
       <tbody>
         {% for row in rows %}
-        <tr data-employee="{{ row.employee.id }}" class="{% if row.saved %}saved{% endif %}">
+        <tr data-employee="{{ row.employee.id }}"
+            data-default-status="{{ row.default_status }}"
+            class="{% if row.saved %}saved{% endif %} {% if row.default_status %}off-row{% endif %}">
           <td>
             <div class="emp-cell">
               <span class="avatar">{{ row.employee.name|slice:":1"|upper }}</span>
               <div>
                 <strong>{{ row.employee.name }}</strong>
                 <span class="muted small">{{ row.employee.employee_code }} · {{ row.employee.email }}</span>
+                {% if row.off_label %}
+                <span class="off-badge">{{ row.off_label }}</span>
+                {% endif %}
               </div>
             </div>
           </td>

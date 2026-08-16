@@ -98,6 +98,42 @@ class User(AbstractBaseUser, PermissionsMixin):
         return (self.full_name or self.email).split(" ")[0]
 
 
+class Holiday(models.Model):
+    """A day the owner has declared off for the whole organization."""
+
+    organization = models.ForeignKey(
+        Organization, on_delete=models.CASCADE, related_name="holidays"
+    )
+    date = models.DateField()
+    name = models.CharField(max_length=120, help_text="e.g. Diwali, Independence Day")
+
+    class Meta:
+        ordering = ["date"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["organization", "date"], name="unique_holiday_per_org_per_day"
+            )
+        ]
+
+    def __str__(self):
+        return f"{self.name} — {self.date}"
+
+
+#: Monday = 0 … Sunday = 6, matching ``date.weekday()``.
+WEEKDAYS = [
+    (0, "Monday"),
+    (1, "Tuesday"),
+    (2, "Wednesday"),
+    (3, "Thursday"),
+    (4, "Friday"),
+    (5, "Saturday"),
+    (6, "Sunday"),
+]
+
+#: Mon–Sat, the common Indian six-day week.
+DEFAULT_WORKING_DAYS = "012345"
+
+
 class Employee(models.Model):
     organization = models.ForeignKey(
         Organization, on_delete=models.CASCADE, related_name="employees"
@@ -109,6 +145,11 @@ class Employee(models.Model):
     designation = models.CharField(max_length=100, blank=True)
     department = models.CharField(max_length=100, blank=True)
     date_of_joining = models.DateField(null=True, blank=True)
+    working_days = models.CharField(
+        max_length=7,
+        default=DEFAULT_WORKING_DAYS,
+        help_text="Weekday numbers this employee works — 0=Monday … 6=Sunday.",
+    )
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
@@ -131,7 +172,45 @@ class Employee(models.Model):
         parts = [part for part in self.name.split() if part]
         return "".join(part[0] for part in parts[:2]).upper() or "?"
 
-    def month_summary(self, on_date):
+    @property
+    def working_weekdays(self):
+        return {int(char) for char in self.working_days if char.isdigit()}
+
+    @property
+    def working_days_display(self):
+        """"Mon–Sat" when the week is contiguous, otherwise "Mon, Wed, Fri"."""
+        days = sorted(self.working_weekdays)
+        if not days:
+            return "None"
+        labels = [dict(WEEKDAYS)[day][:3] for day in days]
+        is_run = days == list(range(days[0], days[-1] + 1))
+        return f"{labels[0]}–{labels[-1]}" if is_run and len(days) > 2 else ", ".join(labels)
+
+    @property
+    def weekly_off_display(self):
+        off = sorted(set(range(7)) - self.working_weekdays)
+        return ", ".join(dict(WEEKDAYS)[day][:3] for day in off) or "None"
+
+    def works_on(self, day):
+        return day.weekday() in self.working_weekdays
+
+    def working_days_between(self, start, end, holiday_dates=()):
+        """Scheduled days in ``[start, end]``, excluding declared holidays.
+
+        ``holiday_dates`` is passed in rather than queried so a report can load
+        the org's holidays once for every employee.
+        """
+        weekdays = self.working_weekdays
+        holidays = set(holiday_dates)
+        total = 0
+        day = start
+        while day <= end:
+            if day.weekday() in weekdays and day not in holidays:
+                total += 1
+            day += timedelta(days=1)
+        return total
+
+    def month_summary(self, on_date, holiday_dates=None):
         """Counts, payable days and punctuality for the month containing `on_date`.
 
         Used to give the employee their standing in the notification email.
@@ -142,10 +221,19 @@ class Employee(models.Model):
         else:
             end = date_cls(start.year, start.month + 1, 1) - timedelta(days=1)
 
+        if holiday_dates is None:
+            holiday_dates = Holiday.objects.filter(
+                organization_id=self.organization_id, date__range=(start, end)
+            ).values_list("date", flat=True)
+        working_days = self.working_days_between(start, end, holiday_dates)
+
         records = list(self.attendance_records.filter(date__range=(start, end)))
         counts = {status: 0 for status, _ in Attendance.STATUS_CHOICES}
         for record in records:
             counts[record.status] += 1
+
+        # Week offs and declared holidays are neither worked nor owed.
+        records = [r for r in records if r.status not in Attendance.NON_WORKING_STATUSES]
 
         attended = [r for r in records if r.status in (Attendance.PRESENT, Attendance.HALF_DAY)]
         timed = [r for r in attended if r.check_in_time]
@@ -167,10 +255,13 @@ class Employee(models.Model):
             "collected_total": business["collected_total"] or Decimal("0"),
             "counts": counts,
             "marked_days": len(records),
+            "working_days": working_days,
             "payable_days": round(sum(r.day_value for r in records), 1),
+            # Measured against the days they were scheduled to work, so a light
+            # month of marking cannot inflate the percentage.
             "attendance_pct": round(
-                sum(r.day_value for r in records) / len(records) * 100
-            ) if records else 0,
+                min(sum(r.day_value for r in records) / working_days, 1) * 100
+            ) if working_days else 0,
             "on_time_days": len(on_time),
             "timed_days": len(timed),
             "punctuality_pct": round(len(on_time) / len(timed) * 100) if timed else None,
@@ -178,10 +269,16 @@ class Employee(models.Model):
         }
 
     def present_streak(self, upto):
-        """Consecutive marked days ending at `upto` where the employee showed up."""
+        """Consecutive working days ending at `upto` where the employee showed up.
+
+        A week off or declared holiday is skipped rather than counted or treated
+        as a break — a Sunday should not cost anyone their streak.
+        """
         streak = 0
         records = self.attendance_records.filter(date__lte=upto).order_by("-date")
         for record in records:
+            if record.status in Attendance.NON_WORKING_STATUSES:
+                continue
             if record.status == Attendance.PRESENT:
                 streak += 1
             else:
@@ -194,16 +291,33 @@ class Attendance(models.Model):
     ABSENT = "ABSENT"
     HALF_DAY = "HALF_DAY"
     LEAVE = "LEAVE"
+    WEEK_OFF = "WEEK_OFF"
+    HOLIDAY = "HOLIDAY"
 
     STATUS_CHOICES = [
         (PRESENT, "Present"),
         (ABSENT, "Absent"),
         (HALF_DAY, "Half Day"),
         (LEAVE, "Leave"),
+        (WEEK_OFF, "Week Off"),
+        (HOLIDAY, "Holiday"),
     ]
 
+    #: The four an admin picks by hand; the other two are filled in by schedule.
+    MARKABLE_STATUSES = [PRESENT, ABSENT, HALF_DAY, LEAVE]
+
+    #: Days off nobody needs to be told about, and that never count as absence.
+    NON_WORKING_STATUSES = {WEEK_OFF, HOLIDAY}
+
     #: Weight used when computing payable days in reports.
-    STATUS_WEIGHTS = {PRESENT: 1.0, HALF_DAY: 0.5, ABSENT: 0.0, LEAVE: 0.0}
+    STATUS_WEIGHTS = {
+        PRESENT: 1.0,
+        HALF_DAY: 0.5,
+        ABSENT: 0.0,
+        LEAVE: 0.0,
+        WEEK_OFF: 0.0,
+        HOLIDAY: 0.0,
+    }
 
     organization = models.ForeignKey(
         Organization, on_delete=models.CASCADE, related_name="attendance_records"

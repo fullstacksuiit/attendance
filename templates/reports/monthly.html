@@ -6,9 +6,23 @@
 <div class="page-head">
   <div>
     <h1>Monthly report</h1>
-    <p class="muted">{{ month_label }} · {{ working_days }} calendar days</p>
+    <p class="muted">
+      {{ month_label }} · {{ calendar_days }} calendar days
+      {% if holiday_count %} · {{ holiday_count }} declared holiday{{ holiday_count|pluralize }}{% endif %}
+    </p>
   </div>
-  <a href="?year={{ year }}&month={{ month }}&export=csv" class="btn btn-primary">Export CSV</a>
+  <div class="head-actions">
+    <a href="?year={{ year }}&month={{ month }}&export=csv" class="btn">Export CSV</a>
+    {% if rows %}
+    <form method="post" action="{% url 'report_send' %}" class="inline-form"
+          onsubmit="return confirm('Email each employee their own {{ month_label }} report? Employees with no attendance that month are skipped.');">
+      {% csrf_token %}
+      <input type="hidden" name="year" value="{{ year }}">
+      <input type="hidden" name="month" value="{{ month }}">
+      <button type="submit" class="btn btn-primary">Email report to staff</button>
+    </form>
+    {% endif %}
+  </div>
 </div>
 
 <form method="get" class="toolbar">
@@ -31,12 +45,14 @@
     <thead>
       <tr>
         <th>Employee</th>
+        <th class="num">Working days</th>
         <th class="num">Present</th>
         <th class="num">Half Day</th>
         <th class="num">Absent</th>
         <th class="num">Leave</th>
         <th class="num">Late</th>
         <th class="num">Payable days</th>
+        <th class="num">Attendance %</th>
         <th class="num">Orders</th>
         <th class="num">Order value</th>
         <th class="num">Collected</th>
@@ -49,14 +65,18 @@
           <a href="{% url 'employee_detail' row.employee.pk %}?year={{ year }}&month={{ month }}">
             <strong>{{ row.employee.name }}</strong>
           </a>
-          <span class="muted small block">{{ row.employee.employee_code }}</span>
+          <span class="muted small block">
+            {{ row.employee.employee_code }} · {{ row.employee.working_days_display }}
+          </span>
         </td>
+        <td class="num">{{ row.working_days }}</td>
         <td class="num">{{ row.present }}</td>
         <td class="num">{{ row.half_day }}</td>
         <td class="num">{{ row.absent }}</td>
         <td class="num">{{ row.leave }}</td>
         <td class="num {% if row.late %}late-text{% endif %}">{{ row.late }}</td>
         <td class="num"><strong>{{ row.payable }}</strong></td>
+        <td class="num">{{ row.attendance_pct }}%</td>
         <td class="num">{{ row.orders }}</td>
         <td class="num">₹{{ row.order_total|rupees_short }}</td>
         <td class="num"><strong>₹{{ row.collected|rupees_short }}</strong></td>
@@ -66,7 +86,7 @@
     <tfoot>
       <tr class="total-row">
         <td><strong>Total</strong></td>
-        <td colspan="6"></td>
+        <td colspan="8"></td>
         <td class="num"><strong>{{ totals.orders }}</strong></td>
         <td class="num"><strong>₹{{ totals.order_total|rupees_short }}</strong></td>
         <td class="num"><strong>₹{{ totals.collected|rupees_short }}</strong></td>

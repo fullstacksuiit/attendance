@@ -10,9 +10,10 @@ import logging
 from django.conf import settings
 from django.core.mail import EmailMultiAlternatives, get_connection
 from django.template.loader import render_to_string
+from django.utils import timezone
 from django.utils.html import strip_tags
 
-from .models import Attendance, EmailLog
+from .models import Attendance, EmailLog, Holiday
 
 logger = logging.getLogger(__name__)
 
@@ -182,6 +183,116 @@ def build_message(attendance, connection=None, previous_status=None):
     )
     message.attach_alternative(html_body, "text/html")
     return message, subject
+
+
+def build_monthly_message(employee, period_start, period_end, summary, records, connection=None):
+    """Render one employee's month-end statement. Returns (message, subject)."""
+    organization = employee.organization
+    is_running_month = period_end >= timezone.localdate()
+
+    subject = (
+        f"[{organization.name}] Monthly Attendance — {period_start:%B %Y} — "
+        f"{employee.name} ({employee.employee_code})"
+    )
+
+    context = {
+        "employee": employee,
+        "organization": organization,
+        "summary": summary,
+        "records": records,
+        "period_start": period_start,
+        "period_end": period_end,
+        "month_label": f"{period_start:%B %Y}",
+        "is_running_month": is_running_month,
+        "as_on": timezone.localdate(),
+        "accent": PRESENT_COLOR if summary["attendance_pct"] >= 75 else LATE_COLOR,
+    }
+    html_body = render_to_string("emails/monthly_report.html", context)
+
+    message = EmailMultiAlternatives(
+        subject=subject,
+        body=strip_tags(html_body.replace("</p>", "</p>\n").replace("<br>", "\n")),
+        from_email=settings.DEFAULT_FROM_EMAIL,
+        to=[employee.email],
+        reply_to=[organization.email] if organization.email else None,
+        connection=connection,
+    )
+    message.attach_alternative(html_body, "text/html")
+    return message, subject
+
+
+def send_monthly_reports(organization, period_start, period_end, employees):
+    """Mail each employee their own summary for the period.
+
+    Employees with no attendance in the period are skipped rather than sent an
+    empty statement. Returns ``(sent, failed, skipped, failures)``.
+    """
+    holiday_dates = list(
+        Holiday.objects.filter(
+            organization=organization, date__range=(period_start, period_end)
+        ).values_list("date", flat=True)
+    )
+
+    sent = 0
+    skipped = 0
+    failures = []
+    logs = []
+
+    connection = get_connection(fail_silently=False)
+    try:
+        connection.open()
+    except Exception as exc:  # pragma: no cover - depends on SMTP availability
+        logger.exception("Could not open email connection for monthly reports")
+        return 0, len(employees), 0, [(e.name, str(exc)) for e in employees]
+
+    try:
+        for employee in employees:
+            records = list(
+                employee.attendance_records.filter(date__range=(period_start, period_end))
+                .order_by("date")
+                .prefetch_related("collections")
+            )
+            if not records:
+                skipped += 1
+                continue
+            for record in records:
+                record.organization = organization  # prime FK cache for is_late
+
+            summary = employee.month_summary(period_start, holiday_dates)
+            message, subject = build_monthly_message(
+                employee, period_start, period_end, summary, records, connection=connection
+            )
+            try:
+                message.send(fail_silently=False)
+            except Exception as exc:
+                logger.warning("Monthly report failed for %s: %s", employee.email, exc)
+                failures.append((employee.name, str(exc)))
+                logs.append(
+                    EmailLog(
+                        organization=organization,
+                        employee=employee,
+                        to_email=employee.email,
+                        subject=subject,
+                        status=EmailLog.FAILED,
+                        error=str(exc),
+                    )
+                )
+            else:
+                sent += 1
+                logs.append(
+                    EmailLog(
+                        organization=organization,
+                        employee=employee,
+                        to_email=employee.email,
+                        subject=subject,
+                        status=EmailLog.SENT,
+                    )
+                )
+    finally:
+        connection.close()
+
+    EmailLog.objects.bulk_create(logs)
+    return sent, len(failures), skipped, failures
 
 
 def send_attendance_emails(attendance_records, previous_statuses=None):

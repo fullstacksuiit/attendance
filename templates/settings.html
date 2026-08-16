@@ -12,6 +12,7 @@
 <div class="card form-card">
   <form method="post" class="form" novalidate>
     {% csrf_token %}
+    <input type="hidden" name="form" value="org">
     {% if form.non_field_errors %}
       <div class="alert alert-error"><span>{{ form.non_field_errors.0 }}</span></div>
     {% endif %}
@@ -60,5 +61,56 @@
       <button type="submit" class="btn btn-primary">Save settings</button>
     </div>
   </form>
+</div>
+
+<div class="card" style="margin-top:20px;">
+  <div class="card-head">
+    <h2>Declared holidays — {{ year }}</h2>
+    <span class="muted small">Applies to everyone. No attendance mail goes out on these days.</span>
+  </div>
+
+  <div class="pad">
+    <form method="post" class="form holiday-form" novalidate>
+      {% csrf_token %}
+      <input type="hidden" name="form" value="holiday">
+      <div class="field">
+        <label for="{{ holiday_form.date.id_for_label }}">Date</label>
+        {{ holiday_form.date }}
+        {% if holiday_form.date.errors %}<p class="error">{{ holiday_form.date.errors.0 }}</p>{% endif %}
+      </div>
+      <div class="field grow">
+        <label for="{{ holiday_form.name.id_for_label }}">Occasion</label>
+        {{ holiday_form.name }}
+        {% if holiday_form.name.errors %}<p class="error">{{ holiday_form.name.errors.0 }}</p>{% endif %}
+      </div>
+      <button type="submit" class="btn btn-primary">Declare holiday</button>
+    </form>
+  </div>
+
+  {% if holidays %}
+  <table class="table">
+    <thead>
+      <tr><th>Date</th><th>Day</th><th>Occasion</th><th class="right">Action</th></tr>
+    </thead>
+    <tbody>
+      {% for holiday in holidays %}
+      <tr>
+        <td>{{ holiday.date|date:"d M Y" }}</td>
+        <td class="muted">{{ holiday.date|date:"l" }}</td>
+        <td><strong>{{ holiday.name }}</strong></td>
+        <td class="right">
+          <form method="post" action="{% url 'holiday_delete' holiday.pk %}" class="inline-form"
+                onsubmit="return confirm('Remove the {{ holiday.name|escapejs }} holiday?');">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-sm btn-danger">Remove</button>
+          </form>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p class="muted pad">No holidays declared for {{ year }} yet.</p>
+  {% endif %}
 </div>
 {% endblock %}
