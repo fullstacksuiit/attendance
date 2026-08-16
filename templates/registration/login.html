@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block title %}Login{% endblock %}
+{% block body_class %}auth-body{% endblock %}
+{% block main_class %}auth-page{% endblock %}
+
+{% block content %}
+<div class="auth-card">
+  <div class="auth-head">
+    <span class="brand-mark lg">A</span>
+    <h1>Welcome back</h1>
+    <p class="muted">Log in to mark attendance for your team.</p>
+  </div>
+
+  {% if form.non_field_errors %}
+    <div class="alert alert-error"><span>{{ form.non_field_errors.0 }}</span></div>
+  {% endif %}
+
+  <form method="post" class="form" novalidate>
+    {% csrf_token %}
+    <div class="field">
+      <label for="{{ form.username.id_for_label }}">Email</label>
+      {{ form.username }}
+      {% if form.username.errors %}<p class="error">{{ form.username.errors.0 }}</p>{% endif %}
+    </div>
+    <div class="field">
+      <label for="{{ form.password.id_for_label }}">Password</label>
+      {{ form.password }}
+      {% if form.password.errors %}<p class="error">{{ form.password.errors.0 }}</p>{% endif %}
+    </div>
+    <button type="submit" class="btn btn-primary btn-block">Log in</button>
+  </form>
+
+  <p class="auth-foot">New organization? <a href="{% url 'signup' %}">Create an account</a></p>
+</div>
+{% endblock %}

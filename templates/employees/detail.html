@@ -1,0 +1,108 @@
+{% extends "base.html" %}
+{% load money %}
+{% block title %}{{ employee.name }}{% endblock %}
+
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>{{ employee.name }}</h1>
+    <p class="muted">
+      {{ employee.employee_code }} · {{ employee.email }}
+      {% if employee.designation %} · {{ employee.designation }}{% endif %}
+      {% if employee.department %} · {{ employee.department }}{% endif %}
+    </p>
+  </div>
+  <div class="head-actions">
+    <a href="{% url 'employee_edit' employee.pk %}" class="btn btn-ghost">Edit</a>
+    <a href="{% url 'employee_list' %}" class="btn btn-ghost">Back</a>
+  </div>
+</div>
+
+<form method="get" class="toolbar">
+  <select name="month">
+    {% for num, label in months %}
+    <option value="{{ num }}" {% if num == month %}selected{% endif %}>{{ label }}</option>
+    {% endfor %}
+  </select>
+  <select name="year">
+    {% for y in years %}
+    <option value="{{ y }}" {% if y == year %}selected{% endif %}>{{ y }}</option>
+    {% endfor %}
+  </select>
+  <button type="submit" class="btn btn-sm">View</button>
+</form>
+
+<section class="stat-grid">
+  <div class="stat ok"><span class="stat-label">Present</span><span class="stat-value">{{ summary.PRESENT }}</span></div>
+  <div class="stat warn"><span class="stat-label">Half day</span><span class="stat-value">{{ summary.HALF_DAY }}</span></div>
+  <div class="stat bad"><span class="stat-label">Absent</span><span class="stat-value">{{ summary.ABSENT }}</span></div>
+  <div class="stat info"><span class="stat-label">Leave</span><span class="stat-value">{{ summary.LEAVE }}</span></div>
+  <div class="stat late"><span class="stat-label">Late arrivals</span><span class="stat-value">{{ late_days }}</span></div>
+  <div class="stat"><span class="stat-label">Payable days</span><span class="stat-value">{{ payable_days }}</span></div>
+</section>
+
+<section class="stat-grid three">
+  <div class="stat biz">
+    <span class="stat-label">Orders</span>
+    <span class="stat-value">{{ business.orders_count }}</span>
+    <span class="stat-sub">{{ business.parties_count }} party line(s)</span>
+  </div>
+  <div class="stat biz">
+    <span class="stat-label">Order value</span>
+    <span class="stat-value">₹{{ business.order_total|rupees_short }}</span>
+    <span class="stat-sub">{{ month_label }}</span>
+  </div>
+  <div class="stat ok">
+    <span class="stat-label">Collected</span>
+    <span class="stat-value">₹{{ business.collected_total|rupees_short }}</span>
+    <span class="stat-sub">{{ month_label }}</span>
+  </div>
+</section>
+
+<div class="card">
+  <div class="card-head"><h2>{{ month_label }}</h2></div>
+  {% if records %}
+  <div class="table-wrap">
+    <table class="table">
+      <thead>
+        <tr>
+          <th>Date</th><th>Status</th><th>In</th><th>Out</th><th>Hours</th>
+          <th>Parties</th><th class="num">Order</th><th class="num">Collected</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for record in records %}
+        <tr>
+          <td>
+            {{ record.date|date:"d M Y" }}
+            <span class="muted small block">{{ record.date|date:"l" }}</span>
+          </td>
+          <td>
+            <span class="pill {{ record.status|lower }}">{{ record.get_status_display }}</span>
+            {% if record.is_late %}<span class="pill late">Late {{ record.late_by_display }}</span>{% endif %}
+            {% if record.note %}<span class="muted small block">{{ record.note }}</span>{% endif %}
+          </td>
+          <td class="{% if record.is_late %}late-text{% endif %}">{{ record.check_in_time|time:"h:i A"|default:"—" }}</td>
+          <td class="muted">{{ record.check_out_time|time:"h:i A"|default:"—" }}</td>
+          <td class="muted">{% if record.worked_hours %}{{ record.worked_hours }}{% else %}—{% endif %}</td>
+          <td>
+            {% for line in record.party_lines %}
+            <span class="muted small block">
+              {{ line.party_name }} — ₹{{ line.collected_amount|rupees_short }}
+            </span>
+            {% empty %}
+            <span class="muted">—</span>
+            {% endfor %}
+          </td>
+          <td class="num">{% if record.has_business %}₹{{ record.total_order_amount|rupees_short }}{% else %}—{% endif %}</td>
+          <td class="num">{% if record.has_business %}<strong>₹{{ record.total_collected|rupees_short }}</strong>{% else %}—{% endif %}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <p class="muted pad">No attendance recorded in {{ month_label }}.</p>
+  {% endif %}
+</div>
+{% endblock %}

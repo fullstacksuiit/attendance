@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+{% block title %}{% if is_edit %}Edit employee{% else %}Add employee{% endif %}{% endblock %}
+
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>{% if is_edit %}Edit {{ employee.name }}{% else %}Add employee{% endif %}</h1>
+    <p class="muted">Attendance mails are sent to the email address entered here.</p>
+  </div>
+  <a href="{% url 'employee_list' %}" class="btn btn-ghost">Back to list</a>
+</div>
+
+<div class="card form-card">
+  <form method="post" class="form" novalidate>
+    {% csrf_token %}
+    {% if form.non_field_errors %}
+      <div class="alert alert-error"><span>{{ form.non_field_errors.0 }}</span></div>
+    {% endif %}
+
+    <div class="grid-2">
+      <div class="field">
+        <label for="{{ form.name.id_for_label }}">Full name</label>
+        {{ form.name }}
+        {% if form.name.errors %}<p class="error">{{ form.name.errors.0 }}</p>{% endif %}
+      </div>
+      <div class="field">
+        <label for="{{ form.employee_code.id_for_label }}">Employee code</label>
+        {{ form.employee_code }}
+        {% if form.employee_code.errors %}<p class="error">{{ form.employee_code.errors.0 }}</p>{% endif %}
+      </div>
+      <div class="field">
+        <label for="{{ form.email.id_for_label }}">Email</label>
+        {{ form.email }}
+        {% if form.email.errors %}<p class="error">{{ form.email.errors.0 }}</p>{% endif %}
+      </div>
+      <div class="field">
+        <label for="{{ form.phone.id_for_label }}">Phone</label>
+        {{ form.phone }}
+        {% if form.phone.errors %}<p class="error">{{ form.phone.errors.0 }}</p>{% endif %}
+      </div>
+      <div class="field">
+        <label for="{{ form.designation.id_for_label }}">Designation</label>
+        {{ form.designation }}
+        {% if form.designation.errors %}<p class="error">{{ form.designation.errors.0 }}</p>{% endif %}
+      </div>
+      <div class="field">
+        <label for="{{ form.department.id_for_label }}">Department</label>
+        {{ form.department }}
+        {% if form.department.errors %}<p class="error">{{ form.department.errors.0 }}</p>{% endif %}
+      </div>
+      <div class="field">
+        <label for="{{ form.date_of_joining.id_for_label }}">Date of joining</label>
+        {{ form.date_of_joining }}
+        {% if form.date_of_joining.errors %}<p class="error">{{ form.date_of_joining.errors.0 }}</p>{% endif %}
+      </div>
+      <div class="field">
+        <label class="checkbox mt">
+          {{ form.is_active }}
+          <span>Active (appears on the attendance sheet)</span>
+        </label>
+      </div>
+    </div>
+
+    <div class="form-actions">
+      <button type="submit" class="btn btn-primary">{% if is_edit %}Save changes{% else %}Add employee{% endif %}</button>
+      {% if not is_edit %}
+      <button type="submit" name="save_and_add" value="1" class="btn">Save &amp; add another</button>
+      {% endif %}
+      <a href="{% url 'employee_list' %}" class="btn btn-ghost">Cancel</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

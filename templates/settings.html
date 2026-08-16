@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+{% block title %}Settings{% endblock %}
+
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>Organization settings</h1>
+    <p class="muted">Office timings decide who gets flagged as a late arrival in their attendance mail.</p>
+  </div>
+</div>
+
+<div class="card form-card">
+  <form method="post" class="form" novalidate>
+    {% csrf_token %}
+    {% if form.non_field_errors %}
+      <div class="alert alert-error"><span>{{ form.non_field_errors.0 }}</span></div>
+    {% endif %}
+
+    <p class="form-section">Profile</p>
+    <div class="grid-2">
+      <div class="field">
+        <label for="{{ form.name.id_for_label }}">{{ form.name.label }}</label>
+        {{ form.name }}
+        {% if form.name.errors %}<p class="error">{{ form.name.errors.0 }}</p>{% endif %}
+      </div>
+      <div class="field">
+        <label for="{{ form.email.id_for_label }}">{{ form.email.label }}</label>
+        {{ form.email }}
+        {% if form.email.errors %}<p class="error">{{ form.email.errors.0 }}</p>{% endif %}
+      </div>
+      <div class="field">
+        <label for="{{ form.phone.id_for_label }}">{{ form.phone.label }}</label>
+        {{ form.phone }}
+        {% if form.phone.errors %}<p class="error">{{ form.phone.errors.0 }}</p>{% endif %}
+      </div>
+      <div class="field">
+        <label for="{{ form.address.id_for_label }}">{{ form.address.label }}</label>
+        {{ form.address }}
+        {% if form.address.errors %}<p class="error">{{ form.address.errors.0 }}</p>{% endif %}
+      </div>
+    </div>
+
+    <p class="form-section">Attendance timings</p>
+    <div class="grid-2">
+      <div class="field">
+        <label for="{{ form.work_start_time.id_for_label }}">{{ form.work_start_time.label }}</label>
+        {{ form.work_start_time }}
+        <p class="hint">Check-ins after this time (plus grace) are marked late.</p>
+        {% if form.work_start_time.errors %}<p class="error">{{ form.work_start_time.errors.0 }}</p>{% endif %}
+      </div>
+      <div class="field">
+        <label for="{{ form.grace_period_minutes.id_for_label }}">{{ form.grace_period_minutes.label }}</label>
+        {{ form.grace_period_minutes }}
+        <p class="hint">e.g. 15 means a 9:30 start tolerates arrival until 9:45.</p>
+        {% if form.grace_period_minutes.errors %}<p class="error">{{ form.grace_period_minutes.errors.0 }}</p>{% endif %}
+      </div>
+    </div>
+
+    <div class="form-actions">
+      <button type="submit" class="btn btn-primary">Save settings</button>
+    </div>
+  </form>
+</div>
+{% endblock %}

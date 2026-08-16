@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% block title %}Email log{% endblock %}
+
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>Email log</h1>
+    <p class="muted">Last 200 attendance notifications sent by this organization.</p>
+  </div>
+</div>
+
+<form method="get" class="toolbar">
+  <select name="status" onchange="this.form.submit()">
+    <option value="" {% if not status %}selected{% endif %}>All</option>
+    <option value="SENT" {% if status == 'SENT' %}selected{% endif %}>Sent</option>
+    <option value="FAILED" {% if status == 'FAILED' %}selected{% endif %}>Failed</option>
+  </select>
+</form>
+
+{% if logs %}
+<div class="table-wrap">
+  <table class="table">
+    <thead>
+      <tr><th>Sent at</th><th>Employee</th><th>To</th><th>Subject</th><th>Status</th></tr>
+    </thead>
+    <tbody>
+      {% for log in logs %}
+      <tr>
+        <td class="nowrap">{{ log.created_at|date:"d M Y, H:i" }}</td>
+        <td><strong>{{ log.employee.name }}</strong></td>
+        <td class="muted">{{ log.to_email }}</td>
+        <td class="muted small">{{ log.subject }}</td>
+        <td>
+          {% if log.status == 'SENT' %}
+            <span class="pill present">Sent</span>
+          {% else %}
+            <span class="pill absent" title="{{ log.error }}">Failed</span>
+            <span class="muted small block">{{ log.error|truncatechars:80 }}</span>
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% else %}
+<div class="empty-card">
+  <h2>No emails logged</h2>
+  <p class="muted">Attendance mails will appear here once you save a sheet.</p>
+</div>
+{% endif %}
+{% endblock %}

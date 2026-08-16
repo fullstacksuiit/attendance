@@ -1,0 +1,127 @@
+{% extends "base.html" %}
+{% load money %}
+{% block title %}Dashboard{% endblock %}
+
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>Dashboard</h1>
+    <p class="muted">{{ current_org.name }} · {{ today|date:"l, d M Y" }}</p>
+  </div>
+  <a href="{% url 'attendance_sheet' %}" class="btn btn-primary">Mark today's attendance</a>
+</div>
+
+{% if total_employees == 0 %}
+<div class="empty-card">
+  <h2>No employees yet</h2>
+  <p class="muted">Add your team members first — attendance mails go to their email addresses.</p>
+  <a href="{% url 'employee_create' %}" class="btn btn-primary">Add your first employee</a>
+</div>
+{% else %}
+
+<section class="stat-grid">
+  <div class="stat">
+    <span class="stat-label">Active employees</span>
+    <span class="stat-value">{{ active_employees }}</span>
+    <span class="stat-sub">{{ total_employees }} total</span>
+  </div>
+  <div class="stat">
+    <span class="stat-label">Marked today</span>
+    <span class="stat-value">{{ marked_today }}</span>
+    <span class="stat-sub">{{ pending_today }} pending</span>
+  </div>
+  <div class="stat ok">
+    <span class="stat-label">Present</span>
+    <span class="stat-value">{{ present_count }}</span>
+    <span class="stat-sub">today</span>
+  </div>
+  <div class="stat warn">
+    <span class="stat-label">Half day</span>
+    <span class="stat-value">{{ half_day_count }}</span>
+    <span class="stat-sub">today</span>
+  </div>
+  <div class="stat bad">
+    <span class="stat-label">Absent</span>
+    <span class="stat-value">{{ absent_count }}</span>
+    <span class="stat-sub">today</span>
+  </div>
+  <div class="stat info">
+    <span class="stat-label">On leave</span>
+    <span class="stat-value">{{ leave_count }}</span>
+    <span class="stat-sub">today</span>
+  </div>
+</section>
+
+<section class="stat-grid three">
+  <div class="stat biz">
+    <span class="stat-label">Orders today</span>
+    <span class="stat-value">{{ day_orders }}</span>
+    <span class="stat-sub">customers who ordered</span>
+  </div>
+  <div class="stat biz">
+    <span class="stat-label">Order value today</span>
+    <span class="stat-value">₹{{ day_order_total|rupees_short }}</span>
+    <span class="stat-sub">₹{{ month_order_total|rupees_short }} this month</span>
+  </div>
+  <div class="stat ok">
+    <span class="stat-label">Collected today</span>
+    <span class="stat-value">₹{{ day_collected|rupees_short }}</span>
+    <span class="stat-sub">₹{{ month_collected|rupees_short }} this month</span>
+  </div>
+</section>
+
+{% if pending_today > 0 %}
+<div class="callout">
+  <strong>{{ pending_today }} employee(s)</strong> still unmarked for today.
+  <a href="{% url 'attendance_sheet' %}">Mark now →</a>
+</div>
+{% endif %}
+
+{% if failed_today %}
+<div class="callout danger">
+  <strong>{{ failed_today }} attendance mail(s)</strong> failed today.
+  <a href="{% url 'email_logs' %}?status=FAILED">See what went wrong →</a>
+</div>
+{% endif %}
+
+<div class="two-col">
+  <section class="card">
+    <div class="card-head">
+      <h2>{{ month_label }} summary</h2>
+      <a href="{% url 'report_monthly' %}" class="link">Full report →</a>
+    </div>
+    <table class="table compact">
+      <tbody>
+        <tr><td><span class="pill present">Present</span></td><td class="num">{{ month_present }}</td></tr>
+        <tr><td><span class="pill half_day">Half Day</span></td><td class="num">{{ month_half_day }}</td></tr>
+        <tr><td><span class="pill absent">Absent</span></td><td class="num">{{ month_absent }}</td></tr>
+        <tr><td><span class="pill leave">Leave</span></td><td class="num">{{ month_leave }}</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section class="card">
+    <div class="card-head">
+      <h2>Recent notifications</h2>
+      <a href="{% url 'email_logs' %}" class="link">All logs →</a>
+    </div>
+    {% if recent_emails %}
+    <ul class="feed">
+      {% for log in recent_emails %}
+      <li>
+        <span class="feed-dot {% if log.status == 'SENT' %}ok{% else %}bad{% endif %}"></span>
+        <div>
+          <strong>{{ log.employee.name }}</strong>
+          <span class="muted small">{{ log.to_email }}</span>
+        </div>
+        <time class="muted small">{{ log.created_at|date:"d M, H:i" }}</time>
+      </li>
+      {% endfor %}
+    </ul>
+    {% else %}
+    <p class="muted">No attendance mails sent yet.</p>
+    {% endif %}
+  </section>
+</div>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,188 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}Mark Attendance{% endblock %}
+
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>Mark Attendance</h1>
+    <p class="muted">Set a status for each employee, then save — every marked employee gets an email.</p>
+  </div>
+</div>
+
+<div class="toolbar">
+  <form method="get" class="date-nav">
+    <a class="btn btn-ghost btn-sm" href="?date={{ prev_date|date:'Y-m-d' }}">‹</a>
+    <input type="date" name="date" value="{{ selected_date|date:'Y-m-d' }}" max="{{ max_date|date:'Y-m-d' }}" onchange="this.form.submit()">
+    <a class="btn btn-ghost btn-sm {% if selected_date >= max_date %}disabled{% endif %}" href="?date={{ next_date|date:'Y-m-d' }}">›</a>
+  </form>
+
+  {% if rows %}
+  <div class="bulk-actions">
+    <span class="muted small">Mark all:</span>
+    <button type="button" class="btn btn-sm mark-all" data-status="PRESENT">Present</button>
+    <button type="button" class="btn btn-sm mark-all" data-status="ABSENT">Absent</button>
+    <button type="button" class="btn btn-sm mark-all" data-status="HALF_DAY">Half Day</button>
+    <button type="button" class="btn btn-sm mark-all" data-status="LEAVE">Leave</button>
+    <button type="button" class="btn btn-sm btn-ghost" id="clearAll">Clear</button>
+  </div>
+  {% endif %}
+</div>
+
+{% if rows %}
+<div class="toolbar sub">
+  <span class="muted small">
+    Office starts <strong>{{ work_start_time|time:"h:i A" }}</strong>
+    ({{ grace_period }} min grace) — anyone checking in after that is flagged late in their mail.
+  </span>
+  <div class="bulk-actions">
+    <label class="muted small" for="bulkTime">Set check-in for all:</label>
+    <input type="time" id="bulkTime" value="{{ work_start_time|time:'H:i' }}">
+    <button type="button" class="btn btn-sm" id="applyTime">Apply</button>
+  </div>
+</div>
+{% endif %}
+
+{% if already_marked %}
+<div class="callout">
+  Attendance for <strong>{{ selected_date|date:"d M Y" }}</strong> is already saved for {{ already_marked }} employee(s).
+  Saving again mails only those whose status actually changed — nobody gets the same notice twice.
+</div>
+{% endif %}
+
+{% if not rows %}
+<div class="empty-card">
+  <h2>No active employees</h2>
+  <p class="muted">Add employees before marking attendance.</p>
+  <a href="{% url 'employee_create' %}" class="btn btn-primary">Add employee</a>
+</div>
+{% else %}
+
+<form id="attendanceForm" data-date="{{ selected_date|date:'Y-m-d' }}" data-url="{% url 'attendance_save' %}"
+      data-start="{{ work_start_time|time:'H:i' }}" data-grace="{{ grace_period }}">
+  {% csrf_token %}
+  <div class="table-wrap">
+    <table class="table sheet">
+      <thead>
+        <tr>
+          <th>Employee</th>
+          <th class="center">Present</th>
+          <th class="center">Absent</th>
+          <th class="center">Half Day</th>
+          <th class="center">Leave</th>
+          <th class="center">In</th>
+          <th class="center">Out</th>
+          <th>Note (optional)</th>
+          <th class="center">Orders &amp; collection</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in rows %}
+        <tr data-employee="{{ row.employee.id }}" class="{% if row.saved %}saved{% endif %}">
+          <td>
+            <div class="emp-cell">
+              <span class="avatar">{{ row.employee.name|slice:":1"|upper }}</span>
+              <div>
+                <strong>{{ row.employee.name }}</strong>
+                <span class="muted small">{{ row.employee.employee_code }} · {{ row.employee.email }}</span>
+              </div>
+            </div>
+          </td>
+          {% for value, label in status_choices %}
+          <td class="center">
+            <label class="radio-dot {{ value|lower }}">
+              <input type="radio" name="status_{{ row.employee.id }}" value="{{ value }}"
+                     {% if row.status == value %}checked{% endif %}>
+              <span></span>
+            </label>
+          </td>
+          {% endfor %}
+          <td class="center">
+            <input type="time" class="time-input check-in" value="{{ row.check_in_time|time:'H:i' }}"
+                   aria-label="Check-in time for {{ row.employee.name }}">
+            <span class="late-flag" hidden>late</span>
+          </td>
+          <td class="center">
+            <input type="time" class="time-input check-out" value="{{ row.check_out_time|time:'H:i' }}"
+                   aria-label="Check-out time for {{ row.employee.name }}">
+          </td>
+          <td>
+            <input type="text" class="note-input" name="note_{{ row.employee.id }}"
+                   value="{{ row.note }}" maxlength="255" placeholder="e.g. informed in advance">
+          </td>
+          <td class="center">
+            <button type="button" class="btn btn-sm btn-ghost biz-toggle">
+              <span class="biz-summary">Add</span>
+            </button>
+          </td>
+        </tr>
+        <tr class="biz-row" data-for="{{ row.employee.id }}" hidden>
+          <td colspan="9">
+            <div class="biz-panel" data-lines="{{ row.collections_json }}">
+              <div class="biz-head">
+                <strong>Orders &amp; collection</strong>
+                <span class="muted small">One line per party. Blank lines are ignored.</span>
+              </div>
+              <table class="biz-table">
+                <thead>
+                  <tr>
+                    <th>Party name</th>
+                    <th class="num">Order amount (₹)</th>
+                    <th class="num">Collected (₹)</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody class="biz-lines"></tbody>
+                <tfoot>
+                  <tr>
+                    <td><button type="button" class="btn btn-sm biz-add">+ Add party</button></td>
+                    <td class="num"><strong class="biz-order-total">0.00</strong></td>
+                    <td class="num"><strong class="biz-collected-total">0.00</strong></td>
+                    <td></td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <div class="sheet-footer">
+    <div class="footer-info">
+      <span><span id="selectedCount">0</span> of {{ rows|length }} marked</span>
+      <span class="day-totals">
+        Orders <strong id="dayOrders">0</strong>
+        · Order value <strong>₹<span id="dayOrderValue">0.00</span></strong>
+        · Collected <strong>₹<span id="dayCollected">0.00</span></strong>
+      </span>
+      <label class="checkbox">
+        <input type="checkbox" id="notifyToggle" checked>
+        <span>Email employees after saving</span>
+      </label>
+    </div>
+    <div class="footer-actions">
+      <button type="submit" class="btn btn-primary" id="saveBtn">Save &amp; Notify</button>
+    </div>
+  </div>
+</form>
+
+<div id="saveResult" class="save-result" hidden></div>
+
+{% if already_marked %}
+<form method="post" action="{% url 'attendance_resend' %}" class="resend-form"
+      onsubmit="return confirm('Force-send attendance mails to everyone marked on {{ selected_date|date:"d M Y" }}, even if nothing changed?');">
+  {% csrf_token %}
+  <input type="hidden" name="date" value="{{ selected_date|date:'Y-m-d' }}">
+  <button type="submit" class="btn btn-ghost btn-sm">Force re-send mails for this date</button>
+  <span class="muted small">Ignores the "only on change" rule — use it when mails failed to deliver.</span>
+</form>
+{% endif %}
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script src="{% static 'js/attendance.js' %}"></script>
+{% endblock %}

@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+{% block title %}Create organization{% endblock %}
+{% block body_class %}auth-body{% endblock %}
+{% block main_class %}auth-page{% endblock %}
+
+{% block content %}
+<div class="auth-card wide">
+  <div class="auth-head">
+    <span class="brand-mark lg">A</span>
+    <h1>Create your organization</h1>
+    <p class="muted">One account for your company. You will be its first admin.</p>
+  </div>
+
+  {% if form.non_field_errors %}
+    <div class="alert alert-error"><span>{{ form.non_field_errors.0 }}</span></div>
+  {% endif %}
+
+  <form method="post" class="form" novalidate>
+    {% csrf_token %}
+
+    <p class="form-section">Organization</p>
+    <div class="grid-2">
+      <div class="field span-2">
+        <label for="{{ form.org_name.id_for_label }}">{{ form.org_name.label }}</label>
+        {{ form.org_name }}
+        {% if form.org_name.errors %}<p class="error">{{ form.org_name.errors.0 }}</p>{% endif %}
+      </div>
+      <div class="field">
+        <label for="{{ form.org_email.id_for_label }}">{{ form.org_email.label }}</label>
+        {{ form.org_email }}
+        <p class="hint">Employees can reply to this address.</p>
+        {% if form.org_email.errors %}<p class="error">{{ form.org_email.errors.0 }}</p>{% endif %}
+      </div>
+      <div class="field">
+        <label for="{{ form.org_phone.id_for_label }}">{{ form.org_phone.label }}</label>
+        {{ form.org_phone }}
+        {% if form.org_phone.errors %}<p class="error">{{ form.org_phone.errors.0 }}</p>{% endif %}
+      </div>
+    </div>
+
+    <p class="form-section">Admin account</p>
+    <div class="grid-2">
+      <div class="field">
+        <label for="{{ form.full_name.id_for_label }}">{{ form.full_name.label }}</label>
+        {{ form.full_name }}
+        {% if form.full_name.errors %}<p class="error">{{ form.full_name.errors.0 }}</p>{% endif %}
+      </div>
+      <div class="field">
+        <label for="{{ form.email.id_for_label }}">{{ form.email.label }}</label>
+        {{ form.email }}
+        {% if form.email.errors %}<p class="error">{{ form.email.errors.0 }}</p>{% endif %}
+      </div>
+      <div class="field">
+        <label for="{{ form.password.id_for_label }}">{{ form.password.label }}</label>
+        {{ form.password }}
+        <p class="hint">Minimum 8 characters.</p>
+        {% if form.password.errors %}<p class="error">{{ form.password.errors.0 }}</p>{% endif %}
+      </div>
+      <div class="field">
+        <label for="{{ form.confirm_password.id_for_label }}">{{ form.confirm_password.label }}</label>
+        {{ form.confirm_password }}
+        {% if form.confirm_password.errors %}<p class="error">{{ form.confirm_password.errors.0 }}</p>{% endif %}
+      </div>
+    </div>
+
+    <button type="submit" class="btn btn-primary btn-block">Create organization</button>
+  </form>
+
+  <p class="auth-foot">Already registered? <a href="{% url 'login' %}">Log in</a></p>
+</div>
+{% endblock %}
