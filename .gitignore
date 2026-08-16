@@ -5,3 +5,4 @@ db.sqlite3
 .env
 staticfiles/
 .DS_Store
+migrations/
