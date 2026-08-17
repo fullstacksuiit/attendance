@@ -14,6 +14,7 @@ from django.utils import timezone
 from django.utils.html import strip_tags
 
 from .models import Attendance, EmailLog, Holiday
+from .pdf import build_monthly_pdf, monthly_pdf_filename
 
 logger = logging.getLogger(__name__)
 
@@ -23,12 +24,27 @@ ABSENT_COLOR = "#dc2626"
 HALF_COLOR = "#d97706"
 LEAVE_COLOR = "#2563eb"
 
+# Each accent carries a darker shade for the header gradient and a pale tint
+# for callout blocks, so the whole mail reads as one colour family.
+PALETTE = {
+    PRESENT_COLOR: {"dark": "#15803d", "tint": "#ecfdf5", "line": "#bbf7d0"},
+    LATE_COLOR: {"dark": "#c2410c", "tint": "#fff7ed", "line": "#fed7aa"},
+    ABSENT_COLOR: {"dark": "#b91c1c", "tint": "#fef2f2", "line": "#fecaca"},
+    HALF_COLOR: {"dark": "#b45309", "tint": "#fffbeb", "line": "#fde68a"},
+    LEAVE_COLOR: {"dark": "#1d4ed8", "tint": "#eff6ff", "line": "#bfdbfe"},
+}
+
+
+def shades(accent):
+    """Darker and pale companions for an accent colour."""
+    return PALETTE.get(accent, PALETTE[PRESENT_COLOR])
+
 
 def build_copy(attendance):
     """Headline, body copy and accent colour for one attendance record.
 
-    Punctual days get recognition, late arrivals get a direct account of the
-    cost — both backed by the employee's own numbers rather than adjectives.
+    The tone is a colleague's, not a warden's — good days get thanked, off days
+    get stated plainly with an easy way to fix them.
     """
     organization = attendance.organization
     start = organization.work_start_time.strftime("%I:%M %p").lstrip("0")
@@ -38,22 +54,27 @@ def build_copy(attendance):
             return {
                 "headline": "Present — Late Arrival",
                 "message": (
-                    f"You were marked present, but you clocked in "
-                    f"{attendance.late_by_display} past the {start} start time. "
-                    "Work that waits on you lands on colleagues who were at their "
-                    "desk on time, and every late arrival stays on your record for "
-                    "the month. Please start on time tomorrow."
+                    "Thanks for coming in — your day is marked present. Your "
+                    f"check-in came {attendance.late_by_display} past the {start} "
+                    "start time, so it goes on record as a late arrival. If "
+                    "something held you up, just tell us and we will note it. "
+                    "Otherwise, an early start tomorrow keeps your month clean."
                 ),
                 "accent": LATE_COLOR,
+                "icon": "⏰",
+                "tagline": "Marked present, clocked in a little late",
                 "subject_phrase": f"Late by {attendance.late_by_display}",
             }
         return {
             "headline": "Present — On Time",
             "message": (
-                "Marked present and on time. Turning up like this, day after day, "
-                "is what lets the whole team plan around you. Keep it going."
+                "Marked present and on time — thank you. Showing up like this, "
+                "day after day, is exactly what lets the whole team plan around "
+                "you. Have a great day ahead."
             ),
             "accent": PRESENT_COLOR,
+            "icon": "✅",
+            "tagline": "You were at your desk on time today",
             "subject_phrase": "Present",
         }
 
@@ -61,10 +82,13 @@ def build_copy(attendance):
         return {
             "headline": "Marked Half Day",
             "message": (
-                "Half of today is counted as payable. If you can shift the other "
-                "half to a full day tomorrow, your month-end numbers will thank you."
+                "Your half day is recorded, and half of today counts as payable. "
+                "Hope everything is sorted at your end — we will see you for a "
+                "full day tomorrow."
             ),
             "accent": HALF_COLOR,
+            "icon": "🌗",
+            "tagline": "Half of today counts towards your payable days",
             "subject_phrase": "Half day",
         }
 
@@ -72,22 +96,27 @@ def build_copy(attendance):
         return {
             "headline": "Marked Absent",
             "message": (
-                "No attendance was recorded for you today. Unplanned absences cut "
-                "directly into your payable days and are visible in your monthly "
-                "record. If this is a mistake, raise it with Consent Person today — otherwise "
-                "we will see you back tomorrow."
+                "We did not receive an attendance entry for you today, so the day "
+                "is marked absent. If you were working, on leave, or this is "
+                "simply a mistake, reply to this mail or speak to HR and we will "
+                "correct it the same day. Hope all is well — see you tomorrow."
             ),
             "accent": ABSENT_COLOR,
+            "icon": "📄",
+            "tagline": "No attendance entry reached us for today",
             "subject_phrase": "Absent",
         }
 
     return {
         "headline": "Marked on Leave",
         "message": (
-            "Your leave for today is recorded. Switch off properly — you will be "
-            "more use to the team rested than half-available."
+            "Your leave for today is recorded — enjoy the break. Switch off "
+            "properly; the team has the day covered, and you will be far more "
+            "use to everyone rested than half-available."
         ),
         "accent": LEAVE_COLOR,
+        "icon": "🌴",
+        "tagline": "Your leave for today is on record",
         "subject_phrase": "On leave",
     }
 
@@ -99,32 +128,32 @@ def build_highlight(attendance, summary, streak):
         collected = f"{attendance.total_collected:,.0f}"
         if attendance.parties_count > 1:
             return (
-                f"Rs {collected} collected from {attendance.parties_count} parties today. "
-                "That is the number that moves the month."
+                f"Rs {collected} collected from {attendance.parties_count} parties today — "
+                "well done. That is the number that moves the month."
             )
-        return f"Rs {collected} collected today. Keep the follow-ups going."
+        return f"Rs {collected} collected today — nice work. Keep the follow-ups going."
 
     if attendance.orders_count > 0:
         return (
             f"Orders from {attendance.orders_count} "
             f"customer{'s' if attendance.orders_count > 1 else ''} booked today — "
-            "now close the collection on them."
+            "good going. Closing the collection on them is the next win."
         )
 
     if attendance.status == Attendance.PRESENT and not attendance.is_late:
         if streak >= 5:
-            return f"{streak} days present in a row. That is a streak worth protecting."
+            return f"{streak} days present in a row — a streak worth protecting."
         if summary["punctuality_pct"] == 100 and summary["timed_days"] >= 3:
             return f"Perfect punctuality this month — {summary['timed_days']}/{summary['timed_days']} days on time."
 
     if attendance.is_late and summary["late_days"] > 1:
         return (
-            f"That is {summary['late_days']} late arrivals this month. "
-            "Two more and it stops looking like traffic."
+            f"That makes {summary['late_days']} late arrivals this month. "
+            "A couple of early starts and you will pull it right back."
         )
 
     if summary["attendance_pct"] >= 90 and summary["marked_days"] >= 5:
-        return f"You are at {summary['attendance_pct']}% attendance this month. Strong record — hold it."
+        return f"You are at {summary['attendance_pct']}% attendance this month — a strong record. Hold it."
 
     return ""
 
@@ -164,6 +193,11 @@ def build_message(attendance, connection=None, previous_status=None):
         "headline": copy["headline"],
         "body_message": copy["message"],
         "accent": copy["accent"],
+        "accent_dark": shades(copy["accent"])["dark"],
+        "accent_tint": shades(copy["accent"])["tint"],
+        "accent_line": shades(copy["accent"])["line"],
+        "icon": copy["icon"],
+        "tagline": copy["tagline"],
         "summary": summary,
         "streak": streak,
         "highlight": build_highlight(attendance, summary, streak),
@@ -185,8 +219,58 @@ def build_message(attendance, connection=None, previous_status=None):
     return message, subject
 
 
+def build_monthly_grade(summary, is_running_month=False):
+    """Badge, opening line and accent for a month, keyed off attendance.
+
+    A month still running is never graded: ``attendance_pct`` measures payable
+    days against the *whole* month's working days, so a mid-month statement
+    would read as a poor record no matter how the employee is doing.
+    """
+    if is_running_month:
+        return {
+            "badge": "Month in progress",
+            "icon": "📅",
+            "note": "This is your record up to today — the month is still running.",
+            "accent": PRESENT_COLOR,
+        }
+
+    pct = summary["attendance_pct"]
+    if pct >= 95:
+        return {
+            "badge": "Outstanding month",
+            "icon": "🏆",
+            "note": "An almost perfect record — thank you for the consistency.",
+            "accent": PRESENT_COLOR,
+        }
+    if pct >= 85:
+        return {
+            "badge": "Strong month",
+            "icon": "⭐",
+            "note": "A solid, dependable month. Nicely done.",
+            "accent": PRESENT_COLOR,
+        }
+    if pct >= 75:
+        return {
+            "badge": "Good month",
+            "icon": "👍",
+            "note": "A steady month — a few more full days and it is a great one.",
+            "accent": PRESENT_COLOR,
+        }
+    return {
+        "badge": "Room to build on",
+        "icon": "📈",
+        "note": "A lighter month than usual. Next month is a clean slate — let us make it count.",
+        "accent": LATE_COLOR,
+    }
+
+
 def build_monthly_message(employee, period_start, period_end, summary, records, connection=None):
-    """Render one employee's month-end statement. Returns (message, subject)."""
+    """Render one employee's month-end statement. Returns (message, subject).
+
+    The same statement rides along as a PDF the employee can file or print. A
+    rendering failure costs the attachment, never the mail — the body already
+    carries every number.
+    """
     organization = employee.organization
     is_running_month = period_end >= timezone.localdate()
 
@@ -195,6 +279,15 @@ def build_monthly_message(employee, period_start, period_end, summary, records, 
         f"{employee.name} ({employee.employee_code})"
     )
 
+    try:
+        pdf_bytes = build_monthly_pdf(
+            employee, period_start, period_end, summary, records, as_on=timezone.localdate()
+        )
+    except Exception:
+        logger.exception("Monthly PDF failed for %s — sending mail without it", employee.email)
+        pdf_bytes = None
+
+    grade = build_monthly_grade(summary, is_running_month)
     context = {
         "employee": employee,
         "organization": organization,
@@ -205,7 +298,14 @@ def build_monthly_message(employee, period_start, period_end, summary, records, 
         "month_label": f"{period_start:%B %Y}",
         "is_running_month": is_running_month,
         "as_on": timezone.localdate(),
-        "accent": PRESENT_COLOR if summary["attendance_pct"] >= 75 else LATE_COLOR,
+        "accent": grade["accent"],
+        "accent_dark": shades(grade["accent"])["dark"],
+        "accent_tint": shades(grade["accent"])["tint"],
+        "accent_line": shades(grade["accent"])["line"],
+        "grade_badge": grade["badge"],
+        "grade_icon": grade["icon"],
+        "grade_note": grade["note"],
+        "pdf_attached": pdf_bytes is not None,
     }
     html_body = render_to_string("emails/monthly_report.html", context)
 
@@ -218,6 +318,10 @@ def build_monthly_message(employee, period_start, period_end, summary, records, 
         connection=connection,
     )
     message.attach_alternative(html_body, "text/html")
+    if pdf_bytes:
+        message.attach(
+            monthly_pdf_filename(employee, period_start), pdf_bytes, "application/pdf"
+        )
     return message, subject
 
 
@@ -367,6 +471,9 @@ def send_attendance_emails(attendance_records, previous_statuses=None):
                         to_email=record.employee.email,
                         subject=subject,
                         status=EmailLog.SENT,
+                        # Stamped so a later save can tell whether this employee
+                        # already holds a mail with these exact details.
+                        content_hash=record.content_hash,
                     )
                 )
     finally:

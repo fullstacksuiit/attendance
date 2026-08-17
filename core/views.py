@@ -94,16 +94,6 @@ def parse_collections(entries):
     return cleaned
 
 
-def collection_signature(lines):
-    """Comparable snapshot of a day's party lines, for change detection."""
-    return sorted(
-        (line["party_name"], line["order_amount"], line["collected_amount"])
-        if isinstance(line, dict)
-        else (line.party_name, line.order_amount, line.collected_amount)
-        for line in lines
-    )
-
-
 def parse_time(value):
     """Accept the "HH:MM" (or "HH:MM:SS") that <input type=time> submits."""
     if not value:
@@ -497,8 +487,6 @@ def attendance_save(request):
         previous[record.employee_id] = record
 
     saved_ids = []
-    notify_ids = []
-    unchanged_ids = []
     previous_statuses = {}
 
     with transaction.atomic():
@@ -509,10 +497,8 @@ def attendance_save(request):
 
             before = previous.get(employee.id)
             before_status = before.status if before else None
-            before_late = before.is_late if before else False
-            before_business = collection_signature(before.party_lines) if before else []
 
-            record, created = Attendance.objects.update_or_create(
+            record, _ = Attendance.objects.update_or_create(
                 organization=org,
                 employee=employee,
                 date=selected_date,
@@ -534,21 +520,10 @@ def attendance_save(request):
                 Collection.objects.bulk_create(
                     [Collection(attendance=record, **line) for line in item["collections"]]
                 )
-            after_business = collection_signature(item["collections"])
 
-            # Only a real change is worth another mail. Re-saving an identical
-            # sheet must stay silent, or employees get the same notice twice.
-            if (
-                created
-                or before_status != record.status
-                or before_late != record.is_late
-                or before_business != after_business
-            ):
-                notify_ids.append(record.id)
-                if before_status:
-                    previous_statuses[record.id] = before_status
-            else:
-                unchanged_ids.append(record.id)
+            # Mark it a correction only when the status genuinely moved.
+            if before_status and before_status != record.status:
+                previous_statuses[record.id] = before_status
 
     if not saved_ids:
         return JsonResponse({"ok": False, "error": "No valid employees in request."}, status=400)
@@ -563,22 +538,28 @@ def attendance_save(request):
     }
 
     if notify:
-        # An unchanged row whose mail never actually landed still deserves one.
-        if unchanged_ids:
-            delivered = set(
-                EmailLog.objects.filter(
-                    attendance_id__in=unchanged_ids, status=EmailLog.SENT
-                ).values_list("attendance_id", flat=True)
-            )
-            notify_ids.extend(pk for pk in unchanged_ids if pk not in delivered)
-
         # Nobody needs a mail telling them Sunday was Sunday.
-        records = [
+        candidates = [
             record
-            for record in Attendance.objects.filter(id__in=notify_ids)
+            for record in Attendance.objects.filter(id__in=saved_ids)
             .select_related("employee", "organization")
             .prefetch_related("collections")
             if record.status not in Attendance.NON_WORKING_STATUSES
+        ]
+
+        # An employee is skipped only when they already hold a mail carrying the
+        # exact details now on record — status, times, note and party lines
+        # alike. Update anything during the day and the end-of-day send goes out.
+        already_mailed = set(
+            EmailLog.objects.filter(
+                attendance_id__in=[record.id for record in candidates],
+                status=EmailLog.SENT,
+            ).values_list("attendance_id", "content_hash")
+        )
+        records = [
+            record
+            for record in candidates
+            if (record.id, record.content_hash) not in already_mailed
         ]
         result["skipped"] = len(saved_ids) - len(records)
 
@@ -592,12 +573,20 @@ def attendance_save(request):
         )
 
     if not notify:
-        result["message"] = f"Saved {result['saved']} record(s). No mails sent."
-    else:
+        result["message"] = (
+            f"Saved {result['saved']} record(s). No mails sent — "
+            "use Save & Send mails when the day is done."
+        )
+    elif result["emailed"] or result["failed"]:
         message = f"Saved {result['saved']} record(s), emailed {result['emailed']}."
         if result["skipped"]:
-            message += f" {result['skipped']} not mailed (unchanged, week off or holiday)."
+            message += f" {result['skipped']} skipped (already mailed, week off or holiday)."
         result["message"] = message
+    else:
+        result["message"] = (
+            f"Saved {result['saved']} record(s). No mails needed — everyone already has "
+            "a mail with exactly these details."
+        )
 
     return JsonResponse(result)
 

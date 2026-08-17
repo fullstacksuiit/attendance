@@ -1,3 +1,4 @@
+import hashlib
 from datetime import date as date_cls
 from datetime import datetime, time, timedelta
 from decimal import Decimal
@@ -410,6 +411,31 @@ class Attendance(models.Model):
         return bool(self.party_lines)
 
     @property
+    def content_signature(self):
+        """Everything about this day that shows up in the employee's mail.
+
+        Two records with the same signature would produce identical mails, so
+        this is what decides whether another notification is worth sending.
+        """
+        lines = sorted(
+            (line.party_name, str(line.order_amount), str(line.collected_amount))
+            for line in self.party_lines
+        )
+        return "|".join(
+            [
+                self.status,
+                self.check_in_time.isoformat() if self.check_in_time else "",
+                self.check_out_time.isoformat() if self.check_out_time else "",
+                self.note,
+                ";".join(",".join(line) for line in lines),
+            ]
+        )
+
+    @property
+    def content_hash(self):
+        return hashlib.sha256(self.content_signature.encode()).hexdigest()[:32]
+
+    @property
     def worked_hours(self):
         """Hours between check-in and check-out, or None if either is missing."""
         if not self.check_in_time or not self.check_out_time:
@@ -467,6 +493,12 @@ class EmailLog(models.Model):
     subject = models.CharField(max_length=255)
     status = models.CharField(max_length=10, choices=STATUS_CHOICES)
     error = models.TextField(blank=True)
+    content_hash = models.CharField(
+        max_length=32,
+        blank=True,
+        help_text="Attendance.content_hash at send time — lets a re-save skip "
+        "employees who already hold a mail with these exact details.",
+    )
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:

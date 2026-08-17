@@ -97,7 +97,7 @@ h2 { font-size: 16px; margin: 0; }
   gap: 16px; margin-bottom: 22px; flex-wrap: wrap;
 }
 .page-head p { margin: 4px 0 0; font-size: 14px; }
-.head-actions { display: flex; gap: 8px; }
+.head-actions { display: flex; gap: 8px; flex-wrap: wrap; }
 
 .card {
   background: var(--surface); border: 1px solid var(--border);
@@ -159,8 +159,13 @@ h2 { font-size: 16px; margin: 0; }
 
 /* ---------- auth ---------- */
 
-.auth-body { background: linear-gradient(160deg, #eef2ff 0%, #f5f6f8 45%); min-height: 100vh; }
-.auth-page { min-height: 100vh; display: grid; place-items: center; padding: 40px 20px; }
+/* dvh, where supported, keeps the card centred instead of pushing it under
+   mobile Safari's collapsing toolbars. */
+.auth-body { background: linear-gradient(160deg, #eef2ff 0%, #f5f6f8 45%); min-height: 100vh; min-height: 100dvh; }
+.auth-page {
+  min-height: 100vh; min-height: 100dvh;
+  display: grid; place-items: center; padding: 40px 20px;
+}
 .auth-card {
   width: 100%; max-width: 420px; background: var(--surface);
   border: 1px solid var(--border); border-radius: 16px; padding: 32px;
@@ -269,29 +274,76 @@ h2 { font-size: 16px; margin: 0; }
 .toolbar select, .toolbar input[type=date] { width: auto; min-width: 130px; }
 .date-nav { display: flex; align-items: center; gap: 6px; }
 .bulk-actions { display: flex; align-items: center; gap: 6px; margin-left: auto; flex-wrap: wrap; }
+.mark-all::before {
+  content: ""; width: 8px; height: 8px; border-radius: 50%; background: currentColor; opacity: .85;
+}
+.mark-all[data-status="PRESENT"] { color: var(--present); }
+.mark-all[data-status="ABSENT"] { color: var(--absent); }
+.mark-all[data-status="HALF_DAY"] { color: var(--half); }
+.mark-all[data-status="LEAVE"] { color: var(--leave); }
 
 /* ---------- attendance sheet ---------- */
 
+/* Fixed layout keeps every row aligned; the widths below must add up to the
+   table's min-width, or the last column gets clipped instead of scrolling. */
+.table.sheet { table-layout: fixed; min-width: 1100px; }
+.table.sheet th { padding: 11px 12px; }
+.table.sheet td { padding: 10px 12px; vertical-align: middle; }
 .table.sheet tbody tr.saved td:first-child { box-shadow: inset 3px 0 0 var(--present); }
 
-.radio-dot { display: inline-block; cursor: pointer; position: relative; line-height: 0; }
-.radio-dot input { position: absolute; opacity: 0; width: 0; height: 0; }
-.radio-dot span {
-  display: block; width: 22px; height: 22px; border-radius: 50%;
-  border: 2px solid #d1d5db; transition: border-color .12s, background .12s, box-shadow .12s;
-}
-.radio-dot:hover span { border-color: #9ca3af; }
-.radio-dot input:focus-visible + span { box-shadow: 0 0 0 3px rgba(79, 70, 229, .2); }
-.radio-dot.present input:checked + span { border-color: var(--present); background: var(--present); box-shadow: inset 0 0 0 3px #fff; }
-.radio-dot.absent input:checked + span { border-color: var(--absent); background: var(--absent); box-shadow: inset 0 0 0 3px #fff; }
-.radio-dot.half_day input:checked + span { border-color: var(--half); background: var(--half); box-shadow: inset 0 0 0 3px #fff; }
-.radio-dot.leave input:checked + span { border-color: var(--leave); background: var(--leave); box-shadow: inset 0 0 0 3px #fff; }
+.col-emp { width: 250px; }
+.col-status { width: 290px; }
+.col-time { width: 140px; }
+.col-note { width: 150px; }
+.col-biz { width: 130px; text-align: center; }
 
-.note-input { font-size: 13px; padding: 7px 10px; min-width: 200px; }
+/* ---- employee cell ---- */
+
+.emp-meta { min-width: 0; }
+.emp-name {
+  font-size: 14px; line-height: 1.35;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.emp-sub { display: flex; align-items: center; gap: 6px; min-width: 0; margin-top: 3px; }
+.code-chip {
+  flex: 0 0 auto; padding: 1px 7px; border-radius: 5px; background: #f1f2f4;
+  color: var(--muted); font-size: 11px; font-weight: 700;
+}
+.emp-email {
+  min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  color: var(--muted); font-size: 12px;
+}
+
+/* ---- segmented status picker ---- */
+
+/* Fills its column exactly — an inline-flex picker overflowed into the next one. */
+.status-picker {
+  display: flex; width: 100%; border: 1px solid var(--border);
+  border-radius: 9px; overflow: hidden; background: var(--surface);
+}
+.status-opt { position: relative; display: block; flex: 1 1 0; min-width: 0; }
+.status-opt + .status-opt { border-left: 1px solid var(--border); }
+.status-opt input { position: absolute; opacity: 0; width: 0; height: 0; }
+.status-opt span {
+  display: block; padding: 7px 4px; font-size: 12px; font-weight: 600;
+  text-align: center; color: var(--muted); cursor: pointer; user-select: none;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  transition: background .12s, color .12s;
+}
+.status-opt:hover span { background: #f3f4f6; color: var(--text); }
+.status-opt input:focus-visible + span { box-shadow: inset 0 0 0 2px rgba(79, 70, 229, .45); }
+.status-opt input:checked + span { color: #fff; }
+.status-opt.present input:checked + span { background: var(--present); }
+.status-opt.absent input:checked + span { background: var(--absent); }
+.status-opt.half_day input:checked + span { background: var(--half); }
+.status-opt.leave input:checked + span { background: var(--leave); }
+
+.note-input { font-size: 13px; padding: 7px 10px; width: 100%; }
 
 /* rows the schedule already answered for */
-.table.sheet tbody tr.off-row > td { background: #fafafa; }
-.table.sheet tbody tr.off-row .radio-dot span { border-color: #e5e7eb; }
+.table.sheet tbody tr.off-row > td { background: #fbfaff; }
+.table.sheet tbody tr.off-row .status-picker { opacity: .6; }
+.table.sheet tbody tr.off-row:hover .status-picker { opacity: 1; }
 .off-badge {
   display: inline-block; margin-top: 3px; padding: 2px 8px; border-radius: 999px;
   background: #ede9fe; color: #6d28d9; font-size: 11px; font-weight: 800;
@@ -318,16 +370,22 @@ h2 { font-size: 16px; margin: 0; }
 .holiday-form .field { margin-bottom: 0; }
 .holiday-form .field.grow { flex: 1; min-width: 220px; }
 
+/* Stacked, so the chip never steals width from the time input. */
+.time-cell { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; }
 .time-input {
-  font-size: 13px; padding: 6px 8px; border: 1px solid var(--border);
+  font-size: 13px; padding: 7px 8px; border: 1px solid var(--border);
   border-radius: 8px; font-family: inherit; background: var(--surface); color: var(--text);
-  width: 108px;
+  width: 100%;
 }
 .time-input:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px rgba(79, 70, 229, .12); }
 .late-flag {
-  display: block; margin-top: 4px; font-size: 10px; font-weight: 800;
-  letter-spacing: .6px; text-transform: uppercase; color: #ea580c;
+  padding: 1px 6px; border-radius: 5px; background: #ffedd5;
+  color: #c2410c; font-size: 10px; font-weight: 800; letter-spacing: .4px;
 }
+/* Author `display` beats the UA rule for [hidden], so restore it explicitly —
+   without this the flag shows on every row, including ones with no check-in. */
+.late-flag[hidden] { display: none; }
+
 .toolbar.sub {
   padding: 10px 14px; background: #fff; border: 1px solid var(--border);
   border-radius: var(--radius); justify-content: space-between;
@@ -340,7 +398,11 @@ h2 { font-size: 16px; margin: 0; }
 
 /* ---------- orders & collection ---------- */
 
-.biz-toggle.has-lines { color: var(--present); font-weight: 700; }
+.biz-toggle { width: 100%; justify-content: center; }
+.biz-toggle .biz-summary { white-space: nowrap; }
+.biz-toggle.has-lines {
+  color: var(--present); border-color: #bbf7d0; background: #f0fdf4; font-weight: 700;
+}
 .biz-row > td { background: #fbfcfd; padding: 0 !important; }
 .biz-panel { padding: 14px 18px; border-left: 3px solid var(--primary); }
 .biz-head { display: flex; align-items: baseline; gap: 10px; margin-bottom: 10px; flex-wrap: wrap; }
@@ -372,7 +434,8 @@ h2 { font-size: 16px; margin: 0; }
 }
 .footer-info { display: flex; align-items: center; gap: 18px; font-size: 14px; color: var(--muted); }
 .footer-info #selectedCount { font-weight: 700; color: var(--text); }
-.footer-actions { display: flex; gap: 10px; }
+.footer-actions { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.footer-hint { max-width: 230px; line-height: 1.4; }
 
 .save-result {
   margin-top: 16px; padding: 14px 18px; border-radius: 10px;
@@ -416,7 +479,116 @@ h2 { font-size: 16px; margin: 0; }
   .grid-2 { grid-template-columns: 1fr; }
   .span-2 { grid-column: span 1; }
   .bulk-actions { margin-left: 0; }
-  .sheet-footer { flex-direction: column; align-items: stretch; }
-  .footer-info { flex-direction: column; align-items: flex-start; gap: 8px; }
+  .sheet-footer { flex-direction: column; align-items: stretch; padding: 12px 14px; }
+  /* Wrapped, not stacked — the footer is sticky, so every extra line it grows
+     is a line of the sheet the phone can't show. */
+  .footer-info { flex-wrap: wrap; align-items: baseline; gap: 6px 14px; font-size: 13px; }
   .footer-actions .btn { width: 100%; }
+}
+
+/* ---------- wide read-only tables on phones ---------- */
+
+/* These tables (12-column report, employee list, per-day history) keep
+   scrolling sideways below 760px; pinning the first column means the name or
+   date you are reading stays on screen while the numbers scroll under it. */
+@media (max-width: 760px) {
+  .table-wrap > .table:not(.sheet) th:first-child,
+  .table-wrap > .table:not(.sheet) td:first-child {
+    position: sticky; left: 0; z-index: 1;
+    background: var(--surface); box-shadow: 1px 0 0 var(--border);
+  }
+  .table-wrap > .table:not(.sheet) thead th:first-child,
+  .table-wrap > .table:not(.sheet) tfoot .total-row td:first-child { background: #fafbfc; }
+}
+
+/* ---------- attendance sheet on phones ---------- */
+
+/* The sheet's fixed 1100px grid cannot shrink, so below 760px every row
+   becomes a stacked card instead of a table row. The markup is untouched —
+   attendance.js still walks `tbody tr[data-employee]` and its child cells. */
+@media (max-width: 760px) {
+  .table-wrap.sheet-wrap { overflow-x: hidden; }
+  .table.sheet { display: block; min-width: 0; table-layout: auto; font-size: 14px; }
+  .table.sheet thead { display: none; }
+  .table.sheet tbody { display: block; }
+  .table.sheet td { display: block; width: auto; padding: 0; border: 0; }
+
+  .table.sheet tbody tr[data-employee] {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 12px;
+    padding: 16px; border-bottom: 1px solid var(--border);
+  }
+  .table.sheet tbody tr[data-employee]:hover { background: none; }
+  .col-emp, .col-status, .col-note, .col-biz { grid-column: 1 / -1; }
+  .col-biz { text-align: left; }
+
+  /* Row-level state: as separate blocks with gaps between them, per-cell
+     backgrounds and edge markers read as stray patches. */
+  .table.sheet tbody tr.saved td:first-child { box-shadow: none; }
+  .table.sheet tbody tr[data-employee].saved { box-shadow: inset 3px 0 0 var(--present); }
+  .table.sheet tbody tr.off-row > td { background: none; }
+  .table.sheet tbody tr.off-row[data-employee] { background: #fbfaff; }
+  /* Touch has no hover to reveal these with, so never dim them. */
+  .table.sheet tbody tr.off-row .status-picker { opacity: 1; }
+
+  /* thead is hidden, so the cells label themselves. */
+  .col-in::before, .col-out::before, .col-note::before,
+  .biz-table tbody td:nth-child(2)::before, .biz-table tbody td:nth-child(3)::before,
+  .biz-table tfoot td:nth-child(2)::before, .biz-table tfoot td:nth-child(3)::before {
+    display: block; margin-bottom: 4px;
+    font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .5px;
+    color: var(--muted);
+  }
+  .col-in::before { content: "Check in"; }
+  .col-out::before { content: "Check out"; }
+  .col-note::before { content: "Note"; }
+
+  .status-opt span { font-size: 13px; }
+  .time-cell { align-items: stretch; }
+
+  /* party lines: name on its own row, the two amounts side by side */
+  .biz-panel { padding: 12px 14px; }
+  .biz-table, .biz-table tbody, .biz-table tfoot { display: block; max-width: none; }
+  .biz-table thead { display: none; }
+  .biz-table tbody tr {
+    display: grid; grid-template-columns: 1fr 1fr auto; gap: 8px; align-items: end;
+    padding: 10px 0; border-bottom: 1px solid var(--border);
+  }
+  .biz-table tbody td, .biz-table tfoot td { display: block; padding: 0; border: 0; }
+  .biz-table tbody td:first-child { grid-column: 1 / -1; }
+  .biz-table tbody td.num, .biz-table tfoot td.num,
+  .biz-table .biz-order, .biz-table .biz-collected { text-align: left; }
+  .biz-table tfoot tr {
+    display: flex; flex-wrap: wrap; align-items: baseline; gap: 12px;
+    padding-top: 12px; border-top: 1px solid var(--border);
+  }
+  .biz-table tfoot td:first-child { flex: 1 1 100%; }
+  .biz-table tfoot td:nth-child(2)::before { content: "Order total ₹"; }
+  .biz-table tfoot td:nth-child(3)::before { content: "Collected ₹"; }
+
+  /* The panel row is toggled with the `hidden` attribute; an author `display`
+     beats the UA rule for [hidden], so opt it back out explicitly. */
+  .table.sheet tbody tr.biz-row { display: block; }
+  .table.sheet tbody tr.biz-row[hidden] { display: none; }
+  .biz-row > td { padding: 0 !important; }
+}
+
+/* ---------- touch devices ---------- */
+
+/* Two things break on a touchscreen regardless of viewport width: iOS Safari
+   zooms the page when a focused field's text is under 16px, and the compact
+   controls sit well under the ~44px a fingertip needs. */
+@media (hover: none) and (pointer: coarse) {
+  .form input, .form select, .form textarea,
+  .search-input, .toolbar select, .toolbar input,
+  .note-input, .time-input, .biz-table input { font-size: 16px; }
+
+  .btn { padding: 12px 16px; }
+  .btn-sm { padding: 9px 13px; }
+  .nav a { padding: 12px; }
+  .nav-toggle { padding: 4px 8px; font-size: 24px; }
+  .alert-close { padding: 2px 8px; font-size: 24px; }
+  .status-opt span { padding: 12px 4px; }
+  .weekday span { padding: 12px 16px; }
+  .biz-remove { padding: 9px 14px; font-size: 18px; }
+  .checkbox input[type=checkbox] { width: 18px; height: 18px; }
 }

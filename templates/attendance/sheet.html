@@ -73,19 +73,16 @@
 <form id="attendanceForm" data-date="{{ selected_date|date:'Y-m-d' }}" data-url="{% url 'attendance_save' %}"
       data-start="{{ work_start_time|time:'H:i' }}" data-grace="{{ grace_period }}">
   {% csrf_token %}
-  <div class="table-wrap">
+  <div class="table-wrap sheet-wrap">
     <table class="table sheet">
       <thead>
         <tr>
-          <th>Employee</th>
-          <th class="center">Present</th>
-          <th class="center">Absent</th>
-          <th class="center">Half Day</th>
-          <th class="center">Leave</th>
-          <th class="center">In</th>
-          <th class="center">Out</th>
-          <th>Note (optional)</th>
-          <th class="center">Orders &amp; collection</th>
+          <th class="col-emp">Employee</th>
+          <th class="col-status">Status</th>
+          <th class="col-time col-in">In</th>
+          <th class="col-time col-out">Out</th>
+          <th class="col-note">Note</th>
+          <th class="col-biz">Orders</th>
         </tr>
       </thead>
       <tbody>
@@ -93,48 +90,58 @@
         <tr data-employee="{{ row.employee.id }}"
             data-default-status="{{ row.default_status }}"
             class="{% if row.saved %}saved{% endif %} {% if row.default_status %}off-row{% endif %}">
-          <td>
+          <td class="col-emp">
             <div class="emp-cell">
-              <span class="avatar">{{ row.employee.name|slice:":1"|upper }}</span>
-              <div>
-                <strong>{{ row.employee.name }}</strong>
-                <span class="muted small">{{ row.employee.employee_code }} · {{ row.employee.email }}</span>
+              <span class="avatar">{{ row.employee.initials }}</span>
+              <div class="emp-meta">
+                <strong class="emp-name">{{ row.employee.name }}</strong>
+                <span class="emp-sub">
+                  <span class="code-chip">{{ row.employee.employee_code }}</span>
+                  <span class="emp-email" title="{{ row.employee.email }}">{{ row.employee.email }}</span>
+                </span>
                 {% if row.off_label %}
                 <span class="off-badge">{{ row.off_label }}</span>
                 {% endif %}
               </div>
             </div>
           </td>
-          {% for value, label in status_choices %}
-          <td class="center">
-            <label class="radio-dot {{ value|lower }}">
-              <input type="radio" name="status_{{ row.employee.id }}" value="{{ value }}"
-                     {% if row.status == value %}checked{% endif %}>
-              <span></span>
-            </label>
+
+          <td class="col-status">
+            <div class="status-picker" role="radiogroup"
+                 aria-label="Attendance status for {{ row.employee.name }}">
+              {% for value, label in status_choices %}
+              <label class="status-opt {{ value|lower }}">
+                <input type="radio" name="status_{{ row.employee.id }}" value="{{ value }}"
+                       {% if row.status == value %}checked{% endif %}>
+                <span>{{ label }}</span>
+              </label>
+              {% endfor %}
+            </div>
           </td>
-          {% endfor %}
-          <td class="center">
-            <input type="time" class="time-input check-in" value="{{ row.check_in_time|time:'H:i' }}"
-                   aria-label="Check-in time for {{ row.employee.name }}">
-            <span class="late-flag" hidden>late</span>
+
+          <td class="col-time col-in">
+            <div class="time-cell">
+              <input type="time" class="time-input check-in" value="{{ row.check_in_time|time:'H:i' }}"
+                     aria-label="Check-in time for {{ row.employee.name }}">
+              <span class="late-flag" hidden>Late</span>
+            </div>
           </td>
-          <td class="center">
+          <td class="col-time col-out">
             <input type="time" class="time-input check-out" value="{{ row.check_out_time|time:'H:i' }}"
                    aria-label="Check-out time for {{ row.employee.name }}">
           </td>
-          <td>
+          <td class="col-note">
             <input type="text" class="note-input" name="note_{{ row.employee.id }}"
-                   value="{{ row.note }}" maxlength="255" placeholder="e.g. informed in advance">
+                   value="{{ row.note }}" maxlength="255" placeholder="Optional remark">
           </td>
-          <td class="center">
-            <button type="button" class="btn btn-sm btn-ghost biz-toggle">
+          <td class="col-biz">
+            <button type="button" class="btn btn-sm biz-toggle">
               <span class="biz-summary">Add</span>
             </button>
           </td>
         </tr>
         <tr class="biz-row" data-for="{{ row.employee.id }}" hidden>
-          <td colspan="9">
+          <td colspan="6">
             <div class="biz-panel" data-lines="{{ row.collections_json }}">
               <div class="biz-head">
                 <strong>Orders &amp; collection</strong>
@@ -175,13 +182,13 @@
         · Order value <strong>₹<span id="dayOrderValue">0.00</span></strong>
         · Collected <strong>₹<span id="dayCollected">0.00</span></strong>
       </span>
-      <label class="checkbox">
-        <input type="checkbox" id="notifyToggle" checked>
-        <span>Email employees after saving</span>
-      </label>
     </div>
     <div class="footer-actions">
-      <button type="submit" class="btn btn-primary" id="saveBtn">Save &amp; Notify</button>
+      <span class="muted small footer-hint">
+        Update through the day with <strong>Save only</strong>, then send once duty ends.
+      </span>
+      <button type="submit" class="btn" id="saveOnlyBtn" value="save">Save only</button>
+      <button type="submit" class="btn btn-primary" id="saveBtn" value="notify">Save &amp; Send mails</button>
     </div>
   </div>
 </form>
@@ -194,7 +201,8 @@
   {% csrf_token %}
   <input type="hidden" name="date" value="{{ selected_date|date:'Y-m-d' }}">
   <button type="submit" class="btn btn-ghost btn-sm">Force re-send mails for this date</button>
-  <span class="muted small">Ignores the "only on change" rule — use it when mails failed to deliver.</span>
+  <span class="muted small">Sends to everyone marked, even if they already have the same mail —
+    use it only when delivery failed.</span>
 </form>
 {% endif %}
 {% endif %}

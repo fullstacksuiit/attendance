@@ -9,8 +9,17 @@
   var rows = Array.prototype.slice.call(form.querySelectorAll("tbody tr[data-employee]"));
   var counter = document.getElementById("selectedCount");
   var saveBtn = document.getElementById("saveBtn");
-  var notifyToggle = document.getElementById("notifyToggle");
+  var saveOnlyBtn = document.getElementById("saveOnlyBtn");
   var resultBox = document.getElementById("saveResult");
+
+  // Which submit button was pressed decides whether mails go out.
+  var notifyNext = true;
+  [saveBtn, saveOnlyBtn].forEach(function (button) {
+    if (!button) return;
+    button.addEventListener("click", function () {
+      notifyNext = button.value === "notify";
+    });
+  });
 
   // Late threshold, in minutes past midnight, mirroring Attendance.minutes_late.
   var lateAfter = toMinutes(form.dataset.start) + parseInt(form.dataset.grace || "0", 10);
@@ -174,13 +183,11 @@
     }).length;
     counter.textContent = marked;
     saveBtn.disabled = marked === 0;
+    if (saveOnlyBtn) saveOnlyBtn.disabled = marked === 0;
     rows.forEach(refreshLateFlag);
     refreshDayTotals();
   }
 
-  function syncSaveLabel() {
-    saveBtn.textContent = notifyToggle.checked ? "Save & Notify" : "Save only";
-  }
 
   form.addEventListener("change", function (event) {
     if (event.target.type === "radio") updateCount();
@@ -222,10 +229,6 @@
     });
   }
 
-  if (notifyToggle) {
-    notifyToggle.addEventListener("change", syncSaveLabel);
-    syncSaveLabel();
-  }
 
   function collectRecords() {
     return rows.reduce(function (acc, row) {
@@ -281,14 +284,19 @@
       return record.status !== "WEEK_OFF" && record.status !== "HOLIDAY";
     }).length;
 
-    var notify = notifyToggle ? notifyToggle.checked : true;
-    if (notify && !window.confirm("Save attendance and email " + mailable + " employee(s)?")) {
+    var notify = notifyNext;
+    if (notify && !window.confirm(
+      "Save and send attendance mails for " + mailable + " employee(s)?\n\n" +
+      "Anyone who already has a mail with exactly these details is skipped."
+    )) {
       return;
     }
 
-    var originalLabel = saveBtn.textContent;
+    var button = notify ? saveBtn : saveOnlyBtn;
+    var originalLabel = button.textContent;
     saveBtn.disabled = true;
-    saveBtn.textContent = notify ? "Saving & sending…" : "Saving…";
+    if (saveOnlyBtn) saveOnlyBtn.disabled = true;
+    button.textContent = notify ? "Saving & sending…" : "Saving…";
 
     fetch(form.dataset.url, {
       method: "POST",
@@ -320,8 +328,8 @@
         showResult({ ok: false, error: error.message });
       })
       .finally(function () {
-        saveBtn.disabled = false;
-        saveBtn.textContent = originalLabel;
+        if (saveOnlyBtn) saveOnlyBtn.disabled = false;
+        button.textContent = originalLabel;
         updateCount();
         resultBox.scrollIntoView({ behavior: "smooth", block: "nearest" });
       });

@@ -1,31 +1,53 @@
 {% load money %}<!DOCTYPE html>
 <html lang="en">
-<head><meta charset="UTF-8"><title>{{ status_label }}</title></head>
-<body style="margin:0;padding:0;background:#f4f5f7;font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;">
-  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f4f5f7;padding:24px 12px;">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>{{ status_label }}</title></head>
+<body style="margin:0;padding:0;background:#eef1f6;font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;">
+  <div style="display:none;max-height:0;overflow:hidden;opacity:0;">{{ headline }} · {{ attendance.date|date:"d M Y" }} · {{ tagline }}</div>
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#eef1f6;padding:28px 12px;">
     <tr>
       <td align="center">
         <table role="presentation" width="100%" cellpadding="0" cellspacing="0"
-               style="max-width:560px;background:#ffffff;border-radius:12px;overflow:hidden;border:1px solid #e5e7eb;">
+               style="max-width:600px;background:#ffffff;border-radius:16px;overflow:hidden;border:1px solid #e3e7ee;box-shadow:0 6px 24px rgba(17,24,39,.06);">
 
+          <!-- header -->
           <tr>
-            <td style="background:{{ accent }};padding:20px 28px;">
-              <p style="margin:0;color:#ffffff;font-size:13px;letter-spacing:.6px;text-transform:uppercase;opacity:.85;">
-                {{ organization.name }}
-              </p>
-              <p style="margin:6px 0 0;color:#ffffff;font-size:22px;font-weight:700;">{{ headline }}</p>
-              <p style="margin:4px 0 0;color:#ffffff;font-size:13px;opacity:.9;">
-                {{ employee.name }} · {{ employee.employee_code }} · {{ attendance.date|date:"l, d M Y" }}
-              </p>
+            <td style="background:{{ accent }};background-image:linear-gradient(135deg,{{ accent }} 0%,{{ accent_dark }} 100%);padding:26px 28px 24px;">
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+                <tr>
+                  <td width="48" valign="top">
+                    <div style="width:44px;height:44px;line-height:44px;text-align:center;font-size:22px;border-radius:12px;background:rgba(255,255,255,.18);">{{ icon }}</div>
+                  </td>
+                  <td valign="top" style="padding-left:14px;">
+                    <p style="margin:0;color:#ffffff;font-size:12px;letter-spacing:1px;text-transform:uppercase;opacity:.8;">
+                      {{ organization.name }}
+                    </p>
+                    <p style="margin:5px 0 0;color:#ffffff;font-size:23px;font-weight:700;line-height:1.25;">{{ headline }}</p>
+                    <p style="margin:6px 0 0;color:#ffffff;font-size:13px;opacity:.92;line-height:1.5;">
+                      {{ tagline }}
+                    </p>
+                  </td>
+                </tr>
+              </table>
+              <table role="presentation" cellpadding="0" cellspacing="0" style="margin-top:18px;">
+                <tr>
+                  <td style="padding:6px 14px;border-radius:999px;background:rgba(255,255,255,.16);color:#ffffff;font-size:12px;font-weight:600;letter-spacing:.3px;">
+                    {{ attendance.date|date:"l, d M Y" }}
+                  </td>
+                  <td width="8"></td>
+                  <td style="padding:6px 14px;border-radius:999px;background:rgba(255,255,255,.16);color:#ffffff;font-size:12px;font-weight:600;letter-spacing:.3px;">
+                    {{ employee.name }} · {{ employee.employee_code }}
+                  </td>
+                </tr>
+              </table>
             </td>
           </tr>
 
           <tr>
-            <td style="padding:28px;">
+            <td style="padding:28px 28px 30px;">
               {% if previous_label %}
-              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 20px;">
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 22px;">
                 <tr>
-                  <td style="padding:12px 16px;background:#fffbeb;border:1px solid #fde68a;border-radius:8px;font-size:14px;color:#92400e;">
+                  <td style="padding:13px 16px;background:#fffbeb;border:1px solid #fde68a;border-radius:10px;font-size:14px;color:#92400e;line-height:1.6;">
                     <strong>Correction.</strong> Your attendance for this date was updated —
                     changed from <strong>{{ previous_label }}</strong> to <strong>{{ status_label }}</strong>.
                     This replaces the earlier mail.
@@ -34,24 +56,34 @@
               </table>
               {% endif %}
 
-              <p style="margin:0 0 16px;font-size:15px;color:#111827;">Hi {{ employee.name }},</p>
-              <p style="margin:0 0 20px;font-size:15px;color:#374151;line-height:1.6;">{{ body_message }}</p>
+              <p style="margin:0 0 14px;font-size:16px;color:#111827;font-weight:600;">Hi {{ employee.name }},</p>
+
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 24px;">
+                <tr>
+                  <td style="padding:16px 18px;background:{{ accent_tint }};border:1px solid {{ accent_line }};border-radius:12px;font-size:15px;color:#374151;line-height:1.65;">
+                    {{ body_message }}
+                  </td>
+                </tr>
+              </table>
 
               <!-- today's record -->
+              <p style="margin:0 0 10px;font-size:11px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:#9aa3b2;">
+                Today at a glance
+              </p>
               <table role="presentation" width="100%" cellpadding="0" cellspacing="0"
-                     style="border:1px solid #e5e7eb;border-radius:10px;">
+                     style="border:1px solid #e5e9f0;border-radius:12px;">
                 <tr>
-                  <td style="padding:12px 16px;font-size:13px;color:#6b7280;border-bottom:1px solid #f1f2f4;">Status</td>
-                  <td style="padding:12px 16px;border-bottom:1px solid #f1f2f4;" align="right">
-                    <span style="display:inline-block;padding:4px 12px;border-radius:999px;background:{{ accent }};color:#ffffff;font-size:13px;font-weight:700;">
+                  <td style="padding:13px 16px;font-size:13px;color:#6b7280;border-bottom:1px solid #f1f3f7;">Status</td>
+                  <td style="padding:13px 16px;border-bottom:1px solid #f1f3f7;" align="right">
+                    <span style="display:inline-block;padding:5px 14px;border-radius:999px;background:{{ accent }};color:#ffffff;font-size:13px;font-weight:700;">
                       {{ status_label }}{% if attendance.is_late %} · Late{% endif %}
                     </span>
                   </td>
                 </tr>
                 {% if attendance.check_in_time %}
                 <tr>
-                  <td style="padding:12px 16px;font-size:13px;color:#6b7280;border-bottom:1px solid #f1f2f4;">Check-in</td>
-                  <td style="padding:12px 16px;font-size:14px;color:#111827;font-weight:600;border-bottom:1px solid #f1f2f4;" align="right">
+                  <td style="padding:13px 16px;font-size:13px;color:#6b7280;border-bottom:1px solid #f1f3f7;">Check-in</td>
+                  <td style="padding:13px 16px;font-size:14px;color:#111827;font-weight:600;border-bottom:1px solid #f1f3f7;" align="right">
                     {{ attendance.check_in_time|time:"h:i A" }}
                     {% if attendance.is_late %}
                       <span style="color:{{ accent }};font-weight:700;">({{ attendance.late_by_display }} late)</span>
@@ -63,8 +95,8 @@
                 {% endif %}
                 {% if attendance.check_out_time %}
                 <tr>
-                  <td style="padding:12px 16px;font-size:13px;color:#6b7280;border-bottom:1px solid #f1f2f4;">Check-out</td>
-                  <td style="padding:12px 16px;font-size:14px;color:#111827;font-weight:600;border-bottom:1px solid #f1f2f4;" align="right">
+                  <td style="padding:13px 16px;font-size:13px;color:#6b7280;border-bottom:1px solid #f1f3f7;">Check-out</td>
+                  <td style="padding:13px 16px;font-size:14px;color:#111827;font-weight:600;border-bottom:1px solid #f1f3f7;" align="right">
                     {{ attendance.check_out_time|time:"h:i A" }}
                     {% if attendance.worked_hours %}
                       <span style="color:#6b7280;font-weight:400;">({{ attendance.worked_hours }} hrs)</span>
@@ -73,15 +105,15 @@
                 </tr>
                 {% endif %}
                 <tr>
-                  <td style="padding:12px 16px;font-size:13px;color:#6b7280;{% if attendance.note %}border-bottom:1px solid #f1f2f4;{% endif %}">Office start</td>
-                  <td style="padding:12px 16px;font-size:14px;color:#111827;{% if attendance.note %}border-bottom:1px solid #f1f2f4;{% endif %}" align="right">
+                  <td style="padding:13px 16px;font-size:13px;color:#6b7280;{% if attendance.note %}border-bottom:1px solid #f1f3f7;{% endif %}">Office start</td>
+                  <td style="padding:13px 16px;font-size:14px;color:#111827;{% if attendance.note %}border-bottom:1px solid #f1f3f7;{% endif %}" align="right">
                     {{ work_start|time:"h:i A" }}
                   </td>
                 </tr>
                 {% if attendance.note %}
                 <tr>
-                  <td style="padding:12px 16px;font-size:13px;color:#6b7280;">Note</td>
-                  <td style="padding:12px 16px;font-size:14px;color:#111827;" align="right">{{ attendance.note }}</td>
+                  <td style="padding:13px 16px;font-size:13px;color:#6b7280;">Note</td>
+                  <td style="padding:13px 16px;font-size:14px;color:#111827;" align="right">{{ attendance.note }}</td>
                 </tr>
                 {% endif %}
               </table>
@@ -89,7 +121,8 @@
               {% if highlight %}
               <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-top:18px;">
                 <tr>
-                  <td style="padding:14px 16px;background:#f9fafb;border-left:4px solid {{ accent }};border-radius:6px;font-size:14px;color:#374151;font-weight:600;line-height:1.5;">
+                  <td width="46" valign="top" style="padding:16px 0 16px 16px;background:{{ accent_tint }};border-radius:12px 0 0 12px;font-size:20px;line-height:1;">★</td>
+                  <td style="padding:16px 18px 16px 10px;background:{{ accent_tint }};border-radius:0 12px 12px 0;font-size:14px;color:#374151;font-weight:600;line-height:1.55;">
                     {{ highlight }}
                   </td>
                 </tr>
@@ -98,66 +131,133 @@
 
               {% if party_lines %}
               <!-- party-wise orders & collection -->
-              <p style="margin:24px 0 10px;font-size:12px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;color:#9ca3af;">
+              <p style="margin:26px 0 10px;font-size:11px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:#9aa3b2;">
                 Orders &amp; collection today
               </p>
               <table role="presentation" width="100%" cellpadding="0" cellspacing="0"
-                     style="border:1px solid #e5e7eb;border-radius:10px;border-collapse:separate;">
+                     style="border:1px solid #e5e9f0;border-radius:12px;border-collapse:separate;">
                 <tr>
-                  <td style="padding:9px 14px;font-size:11px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;color:#6b7280;background:#fafbfc;border-bottom:1px solid #e5e7eb;border-radius:10px 0 0 0;">Party</td>
-                  <td style="padding:9px 14px;font-size:11px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;color:#6b7280;background:#fafbfc;border-bottom:1px solid #e5e7eb;" align="right">Order</td>
-                  <td style="padding:9px 14px;font-size:11px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;color:#6b7280;background:#fafbfc;border-bottom:1px solid #e5e7eb;border-radius:0 10px 0 0;" align="right">Collected</td>
+                  <td style="padding:10px 14px;font-size:11px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:#6b7280;background:#f7f9fc;border-bottom:1px solid #e5e9f0;border-radius:12px 0 0 0;">Party</td>
+                  <td style="padding:10px 14px;font-size:11px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:#6b7280;background:#f7f9fc;border-bottom:1px solid #e5e9f0;" align="right">Order</td>
+                  <td style="padding:10px 14px;font-size:11px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:#6b7280;background:#f7f9fc;border-bottom:1px solid #e5e9f0;border-radius:0 12px 0 0;" align="right">Collected</td>
                 </tr>
                 {% for line in party_lines %}
                 <tr>
-                  <td style="padding:11px 14px;font-size:14px;color:#111827;font-weight:600;border-bottom:1px solid #f1f2f4;">{{ line.party_name }}</td>
-                  <td style="padding:11px 14px;font-size:14px;color:#374151;border-bottom:1px solid #f1f2f4;" align="right">₹{{ line.order_amount|rupees }}</td>
-                  <td style="padding:11px 14px;font-size:14px;color:#111827;font-weight:600;border-bottom:1px solid #f1f2f4;" align="right">₹{{ line.collected_amount|rupees }}</td>
+                  <td style="padding:11px 14px;font-size:14px;color:#111827;font-weight:600;border-bottom:1px solid #f1f3f7;">{{ line.party_name }}</td>
+                  <td style="padding:11px 14px;font-size:14px;color:#374151;border-bottom:1px solid #f1f3f7;" align="right">₹{{ line.order_amount|rupees }}</td>
+                  <td style="padding:11px 14px;font-size:14px;color:#111827;font-weight:600;border-bottom:1px solid #f1f3f7;" align="right">₹{{ line.collected_amount|rupees }}</td>
                 </tr>
                 {% endfor %}
                 <tr>
-                  <td style="padding:12px 14px;font-size:13px;font-weight:700;color:#111827;background:#fafbfc;border-radius:0 0 0 10px;">
+                  <td style="padding:13px 14px;font-size:13px;font-weight:700;color:#111827;background:#f7f9fc;border-radius:0 0 0 12px;">
                     Total · {{ party_lines|length }} part{{ party_lines|length|pluralize:"y,ies" }}
                   </td>
-                  <td style="padding:12px 14px;font-size:15px;font-weight:700;color:#111827;background:#fafbfc;" align="right">₹{{ attendance.total_order_amount|rupees }}</td>
-                  <td style="padding:12px 14px;font-size:15px;font-weight:700;color:{{ accent }};background:#fafbfc;border-radius:0 0 10px 0;" align="right">₹{{ attendance.total_collected|rupees }}</td>
+                  <td style="padding:13px 14px;font-size:15px;font-weight:700;color:#111827;background:#f7f9fc;" align="right">₹{{ attendance.total_order_amount|rupees }}</td>
+                  <td style="padding:13px 14px;font-size:15px;font-weight:700;color:{{ accent }};background:#f7f9fc;border-radius:0 0 12px 0;" align="right">₹{{ attendance.total_collected|rupees }}</td>
                 </tr>
               </table>
-              <p style="margin:8px 0 0;font-size:13px;color:#6b7280;">
+              <p style="margin:9px 0 0;font-size:13px;color:#6b7280;">
                 Orders booked from <strong style="color:#111827;">{{ attendance.orders_count }}</strong>
                 customer{{ attendance.orders_count|pluralize }} today.
               </p>
               {% endif %}
 
+              <!-- month so far -->
+              <p style="margin:26px 0 10px;font-size:11px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:#9aa3b2;">
+                {{ attendance.date|date:"F Y" }} so far
+              </p>
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0"
+                     style="border:1px solid #e5e9f0;border-radius:12px;">
+                <tr>
+                  <td colspan="4" style="padding:18px 16px 16px;border-bottom:1px solid #f1f3f7;">
+                    <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+                      <tr>
+                        <td style="font-size:13px;color:#6b7280;">Attendance this month</td>
+                        <td align="right" style="font-size:20px;font-weight:700;color:{{ accent }};">{{ summary.attendance_pct }}%</td>
+                      </tr>
+                    </table>
+                    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-top:9px;background:#eef1f6;border-radius:999px;">
+                      <tr>
+                        <td width="{{ summary.attendance_pct }}%" style="background:{{ accent }};height:9px;line-height:9px;font-size:0;border-radius:999px;">&nbsp;</td>
+                        <td style="height:9px;line-height:9px;font-size:0;">&nbsp;</td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+                <tr>
+                  <td width="25%" align="center" style="padding:16px 6px;border-right:1px solid #f1f3f7;">
+                    <div style="font-size:20px;font-weight:700;color:#16a34a;">{{ summary.counts.PRESENT }}</div>
+                    <div style="font-size:11px;color:#6b7280;text-transform:uppercase;letter-spacing:.4px;">Present</div>
+                  </td>
+                  <td width="25%" align="center" style="padding:16px 6px;border-right:1px solid #f1f3f7;">
+                    <div style="font-size:20px;font-weight:700;color:#d97706;">{{ summary.counts.HALF_DAY }}</div>
+                    <div style="font-size:11px;color:#6b7280;text-transform:uppercase;letter-spacing:.4px;">Half day</div>
+                  </td>
+                  <td width="25%" align="center" style="padding:16px 6px;border-right:1px solid #f1f3f7;">
+                    <div style="font-size:20px;font-weight:700;color:#dc2626;">{{ summary.counts.ABSENT }}</div>
+                    <div style="font-size:11px;color:#6b7280;text-transform:uppercase;letter-spacing:.4px;">Absent</div>
+                  </td>
+                  <td width="25%" align="center" style="padding:16px 6px;">
+                    <div style="font-size:20px;font-weight:700;color:#111827;">{{ summary.payable_days }}</div>
+                    <div style="font-size:11px;color:#6b7280;text-transform:uppercase;letter-spacing:.4px;">Payable</div>
+                  </td>
+                </tr>
+                <tr>
+                  <td colspan="4" style="padding:13px 16px;border-top:1px solid #f1f3f7;font-size:13px;color:#374151;line-height:1.6;">
+                    <strong>{{ summary.payable_days }}</strong> of
+                    <strong>{{ summary.working_days }}</strong> working days
+                    ({{ summary.attendance_pct }}% attendance) — you work {{ employee.working_days_display }}.
+                  </td>
+                </tr>
+                {% if summary.punctuality_pct is not None %}
+                <tr>
+                  <td colspan="4" style="padding:13px 16px;border-top:1px solid #f1f3f7;font-size:13px;color:#374151;line-height:1.6;">
+                    On time on <strong>{{ summary.on_time_days }} of {{ summary.timed_days }}</strong> days
+                    ({{ summary.punctuality_pct }}% punctual){% if summary.late_days %},
+                    late <strong style="color:{{ accent }};">{{ summary.late_days }}</strong> time{{ summary.late_days|pluralize }}{% endif %}.
+                  </td>
+                </tr>
+                {% endif %}
+                {% if summary.parties_count %}
+                <tr>
+                  <td colspan="4" style="padding:13px 16px;border-top:1px solid #f1f3f7;font-size:13px;color:#374151;line-height:1.6;">
+                    Orders from <strong>{{ summary.orders_count }}</strong> customer{{ summary.orders_count|pluralize }}
+                    worth <strong>₹{{ summary.order_total|rupees }}</strong> ·
+                    collected <strong style="color:#16a34a;">₹{{ summary.collected_total|rupees }}</strong> this month.
+                  </td>
+                </tr>
+                {% endif %}
+              </table>
+
               <!-- employee record -->
-              <p style="margin:24px 0 10px;font-size:12px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;color:#9ca3af;">
+              <p style="margin:26px 0 10px;font-size:11px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:#9aa3b2;">
                 Employee details
               </p>
               <table role="presentation" width="100%" cellpadding="0" cellspacing="0"
-                     style="border:1px solid #e5e7eb;border-radius:10px;">
+                     style="border:1px solid #e5e9f0;border-radius:12px;">
                 <tr>
-                  <td style="padding:11px 16px;font-size:13px;color:#6b7280;border-bottom:1px solid #f1f2f4;width:45%;">Name</td>
-                  <td style="padding:11px 16px;font-size:14px;color:#111827;font-weight:600;border-bottom:1px solid #f1f2f4;" align="right">{{ employee.name }}</td>
+                  <td style="padding:11px 16px;font-size:13px;color:#6b7280;border-bottom:1px solid #f1f3f7;width:45%;">Name</td>
+                  <td style="padding:11px 16px;font-size:14px;color:#111827;font-weight:600;border-bottom:1px solid #f1f3f7;" align="right">{{ employee.name }}</td>
                 </tr>
                 <tr>
-                  <td style="padding:11px 16px;font-size:13px;color:#6b7280;border-bottom:1px solid #f1f2f4;">Employee ID</td>
-                  <td style="padding:11px 16px;font-size:14px;color:#111827;font-weight:600;border-bottom:1px solid #f1f2f4;" align="right">{{ employee.employee_code }}</td>
+                  <td style="padding:11px 16px;font-size:13px;color:#6b7280;border-bottom:1px solid #f1f3f7;">Employee ID</td>
+                  <td style="padding:11px 16px;font-size:14px;color:#111827;font-weight:600;border-bottom:1px solid #f1f3f7;" align="right">{{ employee.employee_code }}</td>
                 </tr>
                 <tr>
-                  <td style="padding:11px 16px;font-size:13px;color:#6b7280;border-bottom:1px solid #f1f2f4;">Phone</td>
-                  <td style="padding:11px 16px;font-size:14px;color:#111827;border-bottom:1px solid #f1f2f4;" align="right">{{ employee.phone|default:"—" }}</td>
+                  <td style="padding:11px 16px;font-size:13px;color:#6b7280;border-bottom:1px solid #f1f3f7;">Phone</td>
+                  <td style="padding:11px 16px;font-size:14px;color:#111827;border-bottom:1px solid #f1f3f7;" align="right">{{ employee.phone|default:"—" }}</td>
                 </tr>
                 <tr>
-                  <td style="padding:11px 16px;font-size:13px;color:#6b7280;border-bottom:1px solid #f1f2f4;">Email</td>
-                  <td style="padding:11px 16px;font-size:14px;color:#111827;border-bottom:1px solid #f1f2f4;" align="right">{{ employee.email }}</td>
+                  <td style="padding:11px 16px;font-size:13px;color:#6b7280;border-bottom:1px solid #f1f3f7;">Email</td>
+                  <td style="padding:11px 16px;font-size:14px;color:#111827;border-bottom:1px solid #f1f3f7;" align="right">{{ employee.email }}</td>
                 </tr>
                 <tr>
-                  <td style="padding:11px 16px;font-size:13px;color:#6b7280;border-bottom:1px solid #f1f2f4;">Designation</td>
-                  <td style="padding:11px 16px;font-size:14px;color:#111827;border-bottom:1px solid #f1f2f4;" align="right">{{ employee.designation|default:"—" }}</td>
+                  <td style="padding:11px 16px;font-size:13px;color:#6b7280;border-bottom:1px solid #f1f3f7;">Designation</td>
+                  <td style="padding:11px 16px;font-size:14px;color:#111827;border-bottom:1px solid #f1f3f7;" align="right">{{ employee.designation|default:"—" }}</td>
                 </tr>
                 <tr>
-                  <td style="padding:11px 16px;font-size:13px;color:#6b7280;{% if employee.date_of_joining %}border-bottom:1px solid #f1f2f4;{% endif %}">Department</td>
-                  <td style="padding:11px 16px;font-size:14px;color:#111827;{% if employee.date_of_joining %}border-bottom:1px solid #f1f2f4;{% endif %}" align="right">{{ employee.department|default:"—" }}</td>
+                  <td style="padding:11px 16px;font-size:13px;color:#6b7280;{% if employee.date_of_joining %}border-bottom:1px solid #f1f3f7;{% endif %}">Department</td>
+                  <td style="padding:11px 16px;font-size:14px;color:#111827;{% if employee.date_of_joining %}border-bottom:1px solid #f1f3f7;{% endif %}" align="right">{{ employee.department|default:"—" }}</td>
                 </tr>
                 {% if employee.date_of_joining %}
                 <tr>
@@ -167,69 +267,21 @@
                 {% endif %}
               </table>
 
-              <!-- month so far -->
-              <p style="margin:24px 0 10px;font-size:12px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;color:#9ca3af;">
-                {{ attendance.date|date:"F Y" }} so far
-              </p>
-              <table role="presentation" width="100%" cellpadding="0" cellspacing="0"
-                     style="border:1px solid #e5e7eb;border-radius:10px;">
-                <tr>
-                  <td width="25%" align="center" style="padding:14px 6px;border-right:1px solid #f1f2f4;">
-                    <div style="font-size:20px;font-weight:700;color:#16a34a;">{{ summary.counts.PRESENT }}</div>
-                    <div style="font-size:11px;color:#6b7280;text-transform:uppercase;letter-spacing:.4px;">Present</div>
-                  </td>
-                  <td width="25%" align="center" style="padding:14px 6px;border-right:1px solid #f1f2f4;">
-                    <div style="font-size:20px;font-weight:700;color:#d97706;">{{ summary.counts.HALF_DAY }}</div>
-                    <div style="font-size:11px;color:#6b7280;text-transform:uppercase;letter-spacing:.4px;">Half day</div>
-                  </td>
-                  <td width="25%" align="center" style="padding:14px 6px;border-right:1px solid #f1f2f4;">
-                    <div style="font-size:20px;font-weight:700;color:#dc2626;">{{ summary.counts.ABSENT }}</div>
-                    <div style="font-size:11px;color:#6b7280;text-transform:uppercase;letter-spacing:.4px;">Absent</div>
-                  </td>
-                  <td width="25%" align="center" style="padding:14px 6px;">
-                    <div style="font-size:20px;font-weight:700;color:#111827;">{{ summary.payable_days }}</div>
-                    <div style="font-size:11px;color:#6b7280;text-transform:uppercase;letter-spacing:.4px;">Payable</div>
-                  </td>
-                </tr>
-                <tr>
-                  <td colspan="4" style="padding:12px 16px;border-top:1px solid #f1f2f4;font-size:13px;color:#374151;">
-                    <strong>{{ summary.payable_days }}</strong> of
-                    <strong>{{ summary.working_days }}</strong> working days
-                    ({{ summary.attendance_pct }}% attendance) — you work {{ employee.working_days_display }}.
-                  </td>
-                </tr>
-                {% if summary.punctuality_pct is not None %}
-                <tr>
-                  <td colspan="4" style="padding:12px 16px;border-top:1px solid #f1f2f4;font-size:13px;color:#374151;">
-                    On time on <strong>{{ summary.on_time_days }} of {{ summary.timed_days }}</strong> days
-                    ({{ summary.punctuality_pct }}% punctual){% if summary.late_days %},
-                    late <strong style="color:{{ accent }};">{{ summary.late_days }}</strong> time{{ summary.late_days|pluralize }}{% endif %}.
-                  </td>
-                </tr>
-                {% endif %}
-                {% if summary.parties_count %}
-                <tr>
-                  <td colspan="4" style="padding:12px 16px;border-top:1px solid #f1f2f4;font-size:13px;color:#374151;">
-                    Orders from <strong>{{ summary.orders_count }}</strong> customer{{ summary.orders_count|pluralize }}
-                    worth <strong>₹{{ summary.order_total|rupees }}</strong> ·
-                    collected <strong style="color:#16a34a;">₹{{ summary.collected_total|rupees }}</strong> this month.
-                  </td>
-                </tr>
-                {% endif %}
-              </table>
-
-              <p style="margin:22px 0 0;font-size:13px;color:#6b7280;line-height:1.6;">
-                This is an automated attendance notification from {{ organization.name }}.
-                {% if organization.email %}For corrections, reply to this mail or write to
-                <a href="mailto:{{ organization.email }}" style="color:{{ accent }};">{{ organization.email }}</a>.{% endif %}
+              <p style="margin:24px 0 0;font-size:13px;color:#6b7280;line-height:1.65;">
+                Something not matching your day? We would rather fix it than have it sit on your record.
+                {% if organization.email %}Reply to this mail or write to
+                <a href="mailto:{{ organization.email }}" style="color:{{ accent }};font-weight:600;text-decoration:none;">{{ organization.email }}</a>.{% endif %}
               </p>
             </td>
           </tr>
 
           <tr>
-            <td style="background:#fafafa;padding:16px 28px;border-top:1px solid #eef0f2;">
-              <p style="margin:0;font-size:12px;color:#9ca3af;">
+            <td style="background:#f7f9fc;padding:18px 28px;border-top:1px solid #eef0f4;">
+              <p style="margin:0;font-size:12px;color:#111827;font-weight:600;">
                 {{ organization.name }}{% if organization.phone %} · {{ organization.phone }}{% endif %}
+              </p>
+              <p style="margin:5px 0 0;font-size:11px;color:#9aa3b2;">
+                Automated attendance notification · sent once your day is marked.
               </p>
             </td>
           </tr>
