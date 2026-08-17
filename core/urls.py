@@ -1,10 +1,30 @@
 from django.contrib.auth import views as auth_views
 from django.urls import path
+from django.views.generic import TemplateView
 
 from . import views
 from .forms import EmailLoginForm
 
 urlpatterns = [
+    # progressive web app (installable "add to home screen")
+    path(
+        "manifest.webmanifest",
+        TemplateView.as_view(
+            template_name="manifest.webmanifest",
+            content_type="application/manifest+json",
+        ),
+        name="manifest",
+    ),
+    # Must be served from the site root so the worker's scope covers every page.
+    path(
+        "sw.js",
+        TemplateView.as_view(
+            template_name="sw.js",
+            content_type="text/javascript",
+        ),
+        name="service_worker",
+    ),
+    path("offline/", TemplateView.as_view(template_name="offline.html"), name="offline"),
     # auth
     path("", views.dashboard, name="dashboard"),
     path("signup/", views.signup_view, name="signup"),

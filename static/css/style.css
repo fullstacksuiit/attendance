@@ -592,3 +592,38 @@ h2 { font-size: 16px; margin: 0; }
   .biz-remove { padding: 9px 14px; font-size: 18px; }
   .checkbox input[type=checkbox] { width: 18px; height: 18px; }
 }
+
+/* ---------- installed app / add to home screen ---------- */
+
+/* Launched from the home screen there is no browser chrome, so the sticky bar
+   would sit under the notch and the last row under the gesture indicator. */
+@media (display-mode: standalone) {
+  .topbar { padding-top: env(safe-area-inset-top); }
+  .topbar-inner,
+  main.page { padding-left: max(20px, env(safe-area-inset-left)); padding-right: max(20px, env(safe-area-inset-right)); }
+  body { padding-bottom: env(safe-area-inset-bottom); }
+}
+
+.install-banner {
+  position: fixed;
+  left: 12px;
+  right: 12px;
+  bottom: calc(12px + env(safe-area-inset-bottom));
+  z-index: 60;
+  max-width: 460px;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: 0 10px 30px rgba(16, 24, 40, .16);
+}
+.install-banner[hidden] { display: none; }
+.install-icon { border-radius: 9px; flex: none; }
+.install-copy { display: flex; flex-direction: column; min-width: 0; flex: 1; }
+.install-copy strong { font-size: 14px; }
+.install-copy span { line-height: 1.35; }
+#installDismiss { font-size: 20px; line-height: 1; padding: 4px 8px; flex: none; }

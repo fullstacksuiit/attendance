@@ -3,9 +3,22 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>{% block title %}Attendance{% endblock %} · {% if current_org %}{{ current_org.name }}{% else %}AttendEase{% endif %}</title>
   <link rel="stylesheet" href="{% static 'css/style.css' %}">
+
+  {# --- installable web app ("add to home screen") --- #}
+  <link rel="manifest" href="{% url 'manifest' %}">
+  <meta name="theme-color" content="#4f46e5">
+  <meta name="application-name" content="AttendEase">
+  <meta name="mobile-web-app-capable" content="yes">
+  <link rel="icon" href="{% static 'img/favicon.ico' %}" sizes="any">
+  <link rel="icon" type="image/png" sizes="32x32" href="{% static 'img/favicon-32.png' %}">
+  {# iOS ignores the manifest: it needs its own icon, title and display hints. #}
+  <link rel="apple-touch-icon" href="{% static 'img/apple-touch-icon.png' %}">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="{% if current_org %}{{ current_org.name }}{% else %}AttendEase{% endif %}">
 </head>
 <body class="{% block body_class %}{% endblock %}">
 
@@ -53,7 +66,18 @@
   {% block content %}{% endblock %}
 </main>
 
+<div class="install-banner" id="installBanner" hidden>
+  <img src="{% static 'img/icon-192.png' %}" alt="" width="40" height="40" class="install-icon">
+  <div class="install-copy">
+    <strong>Install AttendEase</strong>
+    <span class="small muted" id="installHint">Add it to your home screen for one-tap access.</span>
+  </div>
+  <button type="button" class="btn btn-primary btn-sm" id="installAccept">Install</button>
+  <button type="button" class="btn btn-ghost btn-sm" id="installDismiss" aria-label="Dismiss">&times;</button>
+</div>
+
 <script src="{% static 'js/app.js' %}"></script>
+<script src="{% static 'js/pwa.js' %}"></script>
 {% block scripts %}{% endblock %}
 </body>
 </html>
